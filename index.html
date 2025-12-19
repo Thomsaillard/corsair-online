@@ -1,100 +1,315 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>CORSAIR: Naval Legends ONLINE</title>
+    <title>CORSAIR: Naval Legends</title>
     <meta charset="UTF-8">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
+        /* --- STYLE GENERAL --- */
         body { margin: 0; background: #000c18; overflow: hidden; font-family: 'Garamond', serif; color: #ecf0f1; user-select: none; }
         canvas { display: block; }
+
+        /* --- UI EN JEU --- */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
-        .score-board { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; background: rgba(0,0,0,0.6); padding: 10px 30px; border-radius: 0 0 15px 15px; border: 1px solid #555; border-top: none; }
+        
+        .score-board {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            display: flex; align-items: center; gap: 20px;
+            background: rgba(0,0,0,0.6); padding: 10px 30px; border-radius: 0 0 15px 15px; border: 1px solid #555; border-top: none;
+        }
         .score-team { font-size: 28px; font-weight: bold; text-shadow: 2px 2px 0 #000; min-width: 60px; text-align: center; }
         .blue-team { color: #3498db; } .red-team { color: #e74c3c; }
         .score-target { color: #aaa; font-size: 16px; text-transform: uppercase; letter-spacing: 2px; }
+
         .hud-top-left { position: absolute; top: 20px; left: 20px; display: flex; flex-direction: column; gap: 15px; }
         .health-container { width: 280px; height: 16px; background: #000; border: 2px solid #daa520; border-radius: 4px; }
         .health-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #8b0000, #ff0000); transition: width 0.3s; }
+        
         #wind-compass { width: 80px; height: 80px; background: #d2b48c; border: 4px solid #5d4037; border-radius: 50%; position: relative; margin-top: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.8); }
         #wind-arrow { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
         #wind-arrow::after { content: '➤'; font-size: 30px; color: #8b0000; transform: rotate(90deg); }
+        
         #wind-warning { color: #ffcc00; font-weight: bold; font-size: 18px; text-shadow: 2px 2px 0 #000; display: none; margin-top:5px;}
         #boundary-warning { position: absolute; top: 15%; width: 100%; text-align: center; font-size: 45px; color: #ff3333; font-weight: bold; text-shadow: 0 0 20px #000; display: none; }
+        
+        .special-ability-ui { display: flex; align-items: center; gap: 10px; margin-top: 10px; display: none; }
+        .special-icon { width: 50px; height: 50px; background: #333; border: 2px solid #777; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 24px; transition: 0.3s; position: relative; overflow: hidden; }
+        .special-icon.ready { border-color: #00d2d3; box-shadow: 0 0 15px #00d2d3; background: #003333; cursor: pointer; }
+        .special-fill { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.7); transition: height 0.1s; }
+        .special-text { font-size: 14px; color: #ccc; text-shadow: 1px 1px 0 #000; font-weight: bold; }
+
+        #repair-msg { position: absolute; bottom: 180px; left: 50%; transform: translateX(-50%); color: #2ecc71; font-weight: bold; font-size: 20px; text-shadow: 1px 1px 0 #000; display:none; background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 20px; border: 1px solid #2ecc71; }
+        #shop-hint { position: absolute; bottom: 140px; left: 50%; transform: translateX(-50%); color: #f1c40f; font-weight: bold; font-size: 22px; text-shadow: 1px 1px 0 #000; display:none; animation: pulse 1s infinite; background: rgba(0,0,0,0.7); padding: 10px 20px; border: 2px solid #f1c40f; border-radius: 8px; pointer-events: auto; cursor:pointer;}
+        @keyframes pulse { 0% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.05); } 100% { transform: translateX(-50%) scale(1); } }
+
+        #transfer-msg { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 28px; font-weight: bold; text-shadow: 0 0 10px #000; background: rgba(0, 0, 0, 0.7); padding: 20px 40px; border: 2px solid #3498db; border-radius: 8px; display: none; z-index: 10; pointer-events: none; text-align: center; }
+        .blink { animation: blinker 0.2s linear 3; }
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        .gold-display { font-size: 32px; color: #f1c40f; font-weight: bold; text-shadow: 2px 2px 0 #000; display: flex; align-items: center; gap: 10px; }
+        .cannons-ui { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 60px; }
+        .cannon-dial { width: 80px; height: 80px; border-radius: 50%; background: #222; border: 4px solid #555; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; color: #888; transition: 0.3s; box-shadow: 0 0 20px #000; }
+        .cannon-dial.ready { border-color: #ffcc00; color: #fff; box-shadow: 0 0 25px rgba(255, 204, 0, 0.4); background: #443300; transform: scale(1.1); }
+        .cannon-dial .key-hint { font-size: 20px; display: block; margin-bottom: 2px; color: #fff; }
+
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 5, 10, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; z-index: 20; backdrop-filter: blur(5px); }
         .menu-panel { background: #1e1e1e; border: 4px solid #daa520; border-radius: 12px; padding: 40px; text-align: center; box-shadow: 0 0 60px rgba(0,0,0,1); position: relative; max-width: 900px; width: 90%; }
         h1 { font-size: 70px; margin: 0; text-transform: uppercase; font-style: italic; color: #daa520; text-shadow: 4px 4px 0 #000; letter-spacing: 4px; }
         h2 { color: #888; margin-top: 5px; font-size: 20px; letter-spacing: 3px; text-transform: uppercase; border-bottom: 1px solid #444; padding-bottom: 20px; margin-bottom: 30px;}
-        .mode-selector { display: flex; gap: 30px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }
+        .desc { color: #ccc; margin: 20px 0; font-size: 18px; }
+
+        .mode-selector, .ship-selector { display: flex; gap: 30px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }
         .mode-btn { background: #333; border: 2px solid #555; padding: 25px; width: 300px; cursor: pointer; transition: 0.3s; border-radius: 8px; }
         .mode-btn:hover { background: #444; border-color: #daa520; transform: translateY(-5px); }
         .mode-title { font-size: 24px; color: #ffcc00; font-weight: bold; display: block; margin-bottom: 10px; }
         .mode-desc { font-size: 14px; color: #bbb; line-height: 1.4; }
+
+        .ship-card { background: rgba(0,0,0,0.3); padding: 15px; border: 1px solid #555; border-radius: 8px; width: 200px; cursor: pointer; transition: 0.2s; }
+        .ship-card:hover { border-color: #daa520; transform: translateY(-5px); }
+        .ship-title { font-weight: bold; color: #ffcc00; font-size: 20px; margin-bottom: 10px; display:block; }
+        .target-hint { font-size: 12px; color: #aaa; margin-top: 5px; }
+
+        .evolution-path { display: flex; align-items: center; justify-content: center; gap: 15px; margin-top: 20px; }
+        .evo-step { background: #222; border: 2px solid #444; padding: 20px; border-radius: 10px; width: 220px; position: relative; opacity: 0.6; transition: 0.3s; }
+        .evo-step.active { border-color: #2ecc71; opacity: 1; box-shadow: 0 0 15px rgba(46, 204, 113, 0.2); }
+        .evo-step.next { border-color: #f1c40f; opacity: 1; cursor: pointer; transform: scale(1.05); box-shadow: 0 0 20px rgba(241, 196, 15, 0.3); }
+        .evo-step.locked { opacity: 0.4; }
+        .evo-arrow { font-size: 30px; color: #666; }
+        .item-price { color: #f1c40f; font-weight: bold; font-size: 18px; margin-top: 5px; display:block; }
+
+        .upgrade-box { margin-top: 30px; border-top: 1px solid #444; padding-top: 20px; display:flex; gap:20px; justify-content:center; flex-wrap:wrap;}
+        .upgrade-btn { background: #e74c3c; padding: 15px 30px; font-size: 18px; border: 2px solid #c0392b; color: white; cursor: pointer; border-radius: 5px; min-width: 250px; }
+        .upgrade-btn:hover { background: #c0392b; }
+        .upgrade-btn.disabled { background: #333; border-color: #555; color: #777; cursor: not-allowed; transform: none !important; filter: none !important; }
+        .upgrade-btn.owned { background: #27ae60; border-color: #2ecc71; cursor: default; }
+
+        button { background: #8b0000; color: #ffcc00; border: 2px solid #ffcc00; padding: 15px 40px; font-size: 20px; font-family: 'Garamond', serif; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 20px;}
+        button:hover { transform: translateY(-3px); filter: brightness(1.2); }
+        .btn-secondary { background: #333; border-color: #888; color: #ddd; margin-left: 10px; }
+        .hidden { display: none !important; }
+
+        #respawn-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(50, 0, 0, 0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 30; }
+        #respawn-text { font-size: 60px; color: #e74c3c; font-weight: bold; text-shadow: 0 0 20px #000; }
+        #respawn-sub { font-size: 24px; color: #fff; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div id="ui-layer" style="display:none;">
     <div id="boundary-warning">⚠️ FIN DU MONDE ⚠️</div>
+    
     <div class="score-board">
         <div class="score-team blue-team" id="score-blue">0</div>
         <div class="score-target" id="score-target-text">Objectif: 25</div>
         <div class="score-team red-team" id="score-red">0</div>
     </div>
+
     <div id="repair-msg">🛠️ RÉPARATIONS EN COURS 🛠️</div>
     <div id="shop-hint" onclick="openShop()">[B] CHANTIER NAVAL</div>
+    <div id="transfer-msg">NAVIRE COULÉ !<br><span style="font-size:18px; color:#3498db">Commandement transféré</span></div>
+    
     <div class="hud-top-left">
-        <div class="gold-display">💰 <span id="gold-val">0</span></div>
+        <div class="gold-display"><span class="gold-icon">💰</span> <span id="gold-val">0</span></div>
         <div class="health-container"><div id="hp-bar" class="health-fill"></div></div>
-        <div id="wind-compass"><div id="wind-arrow"></div></div>
+        
+        <div id="special-ui" class="special-ability-ui">
+            <div id="special-icon" class="special-icon">
+                <div id="special-fill" class="special-fill"></div>
+                <span id="special-symbol">★</span>
+            </div>
+            <span class="special-text">[ESPACE] <span id="special-name">Capacité</span></span>
+        </div>
+
+        <div id="wind-compass"><div class="slow-zone"></div><div id="wind-arrow"></div></div>
+        <div id="wind-warning">VENT DE FACE</div>
     </div>
+    <div class="cannons-ui">
+        <div id="dial-left" class="cannon-dial"><span class="key-hint">A / Q</span>BÂBORD</div>
+        <div id="dial-right" class="cannon-dial"><span class="key-hint">E</span>TRIBORD</div>
+    </div>
+</div>
+
+<div id="respawn-overlay">
+    <div id="respawn-text">NAVIRE PERDU</div>
+    <div id="respawn-sub">Retour au port... (Réinitialisation)</div>
 </div>
 
 <div id="menu-screen" class="overlay">
     <div class="menu-panel">
-        <h1>Corsair</h1><h2>Naval Legends</h2>
-        <div class="mode-selector">
-            <div class="mode-btn" onclick="startGame('BRIG')">
-                <span class="mode-title">⚓ REJOINDRE LA BATAILLE</span>
-                <span class="mode-desc">Mode multijoueur en ligne.</span>
+        <h1>Corsair</h1>
+        <h2>Naval Legends</h2>
+        <div class="desc" id="menu-desc">Choisissez votre mode de jeu :</div>
+        
+        <div id="mode-select-ui" class="mode-selector">
+            <div class="mode-btn" onclick="selectMode('EVOLUTION')">
+                <span class="mode-title">⚓ MODE ÉVOLUTION (4v4)</span>
+                <span class="mode-desc">Commencez en Brick. Gagnez de l'or. Achetez le Man'o'War. Respawn au port.</span>
+            </div>
+            <div class="mode-btn" onclick="selectMode('FLEET')">
+                <span class="mode-title">⚔️ BATAILLE RAPIDE (4v4)</span>
+                <span class="mode-desc">Combattez jusqu'à l'élimination totale. Pas de respawn. Pas de Man'o'War.</span>
             </div>
         </div>
+
+        <div id="ship-select-ui" class="ship-selector hidden">
+            <div class="ship-card" onclick="startGame('SLOOP')">
+                <span class="ship-title">SLOOP</span>
+                <div class="target-hint">Rapide - Fragile</div>
+            </div>
+            <div class="ship-card" onclick="startGame('BRIG')">
+                <span class="ship-title">BRICK</span>
+                <div class="target-hint">Équilibré</div>
+            </div>
+            <div class="ship-card" onclick="startGame('GALLEON')">
+                <span class="ship-title">GALION</span>
+                <div class="target-hint">Tank - Lent</div>
+            </div>
+        </div>
+        
+        <button id="back-btn" class="btn-secondary hidden" onclick="resetMenu()">RETOUR</button>
+    </div>
+</div>
+
+<div id="shop-screen" class="overlay" style="display:none;">
+    <div class="menu-panel" style="max-width: 950px;">
+        <h1>CHANTIER NAVAL</h1>
+        <div class="gold-display" style="justify-content: center; margin-bottom: 20px;">Or disponible : <span id="shop-gold">0</span></div>
+        
+        <div class="evolution-path">
+            <div id="shop-brig" class="evo-step active">
+                <span class="ship-title">1. BRICK</span>
+                <div class="desc" style="font-size:14px;">Navire de départ.<br>3 Canons</div>
+                <div style="color:#2ecc71; font-weight:bold; margin-top:10px;">POSSÉDÉ</div>
+            </div>
+            
+            <div class="evo-arrow">➜</div>
+
+            <div id="shop-galleon" class="evo-step locked" onclick="buyShip('GALLEON')">
+                <span class="ship-title">2. GALION</span>
+                <div class="desc" style="font-size:14px;">Coque renforcée.<br>6 Canons</div>
+                <div class="item-price">400 💰</div>
+            </div>
+
+            <div class="evo-arrow">➜</div>
+
+            <div id="shop-manowar" class="evo-step locked" onclick="buyShip('MANOWAR')">
+                <span class="ship-title" style="color:#e74c3c">3. MAN'O'WAR</span>
+                <div class="desc" style="font-size:14px;">La Forteresse.<br>7 Canons</div>
+                <div class="item-price">800 💰</div>
+            </div>
+        </div>
+
+        <div class="upgrade-box">
+            <button id="btn-damage" class="upgrade-btn" onclick="buyDamage()">
+                POUDRE NOIRE (+20%)<br><span style="font-size:14px">Dégâts canons</span><br>
+                <span style="font-weight:bold; color:#f1c40f">200 💰</span>
+            </button>
+            
+            <button id="btn-mine" class="upgrade-btn" onclick="buySpecial('MINE')">
+                MINES FLOTTANTES<br><span style="font-size:14px">Piège explosif (Espace)</span><br>
+                <span id="price-mine" style="font-weight:bold; color:#f1c40f">300 💰</span>
+            </button>
+
+            <button id="btn-chain" class="upgrade-btn" onclick="buySpecial('CHAIN')">
+                BOULETS CHAÎNÉS<br><span style="font-size:14px">Ralentit l'ennemi (Espace)</span><br>
+                <span id="price-chain" style="font-weight:bold; color:#f1c40f">300 💰</span>
+            </button>
+        </div>
+
+        <button class="btn-secondary" onclick="closeShop()">RETOURNER AU COMBAT</button>
+    </div>
+</div>
+
+<div id="gameover-screen" class="overlay" style="display:none;">
+    <div class="menu-panel">
+        <h1 id="end-title">TITRE</h1>
+        <h2 id="end-msg" style="border:none;">Message</h2>
+        <button onclick="location.reload()">MENU PRINCIPAL</button>
+    </div>
+</div>
+
+<div id="pause-screen" class="overlay" style="display:none;">
+    <div class="menu-panel">
+        <h1>PAUSE</h1>
+        <button onclick="resumeGame()">REPRENDRE</button><br><button class="btn-secondary" onclick="quitToMenu()">QUITTER</button>
     </div>
 </div>
 
 <canvas id="gameCanvas"></canvas>
 
 <script>
-    // --- CONNEXION MULTIJOUEUR ---
-    const socket = io('https://corsair-online.onrender.com'); 
+    // AJOUT MULTIJOUEUR 2: Connexion
+    const socket = io('https://corsair-online.onrender.com');
 
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const ZOOM_LEVEL = 0.8; 
 
-    let ships = []; 
-    let player = null; 
-    let gameState = 'MENU';
-    let camera = { x: 0, y: 0 };
+    // UI Refs
+    const uiLayer = document.getElementById('ui-layer');
+    const menuScreen = document.getElementById('menu-screen');
+    const modeSelectUI = document.getElementById('mode-select-ui');
+    const shipSelectUI = document.getElementById('ship-select-ui');
+    const backBtn = document.getElementById('back-btn');
+    const menuDesc = document.getElementById('menu-desc');
+    const shopScreen = document.getElementById('shop-screen');
+    const overScreen = document.getElementById('gameover-screen');
+    const respawnOverlay = document.getElementById('respawn-overlay');
+    const pauseScreen = document.getElementById('pause-screen');
+    const hpBar = document.getElementById('hp-bar');
+    const goldValEl = document.getElementById('gold-val');
+    const shopGoldEl = document.getElementById('shop-gold');
+    const dialLeft = document.getElementById('dial-left');
+    const dialRight = document.getElementById('dial-right');
+    const windArrow = document.getElementById('wind-arrow');
+    const windWarning = document.getElementById('wind-warning');
+    const boundaryWarning = document.getElementById('boundary-warning');
+    const scoreBlueEl = document.getElementById('score-blue');
+    const scoreRedEl = document.getElementById('score-red');
+    const scoreTargetText = document.getElementById('score-target-text');
+    const transferMsg = document.getElementById('transfer-msg');
+    const repairMsg = document.getElementById('repair-msg');
+    const shopHint = document.getElementById('shop-hint');
+    const endTitle = document.getElementById('end-title');
+    const endMsg = document.getElementById('end-msg');
 
-    // --- ECOUTE DU SERVEUR ---
+    // NOUVEAU UI REFS
+    const specialUI = document.getElementById('special-ui');
+    const specialIcon = document.getElementById('special-icon');
+    const specialFill = document.getElementById('special-fill');
+    const specialName = document.getElementById('special-name');
+    const specialSymbol = document.getElementById('special-symbol');
+
+    // Shop Elements
+    const shopBrig = document.getElementById('shop-brig');
+    const shopGalleon = document.getElementById('shop-galleon');
+    const shopManowar = document.getElementById('shop-manowar');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // AJOUT MULTIJOUEUR 3: ECOUTE DU SERVEUR
     socket.on('currentPlayers', (serverPlayers) => {
         Object.keys(serverPlayers).forEach((id) => {
             if (id !== socket.id) {
-                createRemoteShip(id, serverPlayers[id]);
+                const p = serverPlayers[id];
+                let otherShip = createShip(p.type, p.x, p.y, p.team, false);
+                otherShip.netId = id;
+                ships.push(otherShip);
             }
         });
     });
 
     socket.on('newPlayer', (p) => {
-        createRemoteShip(p.id, p);
+        let otherShip = createShip(p.type, p.x, p.y, p.team, false);
+        otherShip.netId = p.id;
+        ships.push(otherShip);
     });
 
     socket.on('playerMoved', (p) => {
         const ship = ships.find(s => s.netId === p.id);
         if (ship) {
-            ship.x = p.x;
-            ship.y = p.y;
-            ship.angle = p.angle;
+            ship.x = p.x; ship.y = p.y; ship.angle = p.angle;
         }
     });
 
@@ -102,100 +317,302 @@
         ships = ships.filter(s => s.netId !== id);
     });
 
-    function createRemoteShip(id, data) {
-        let s = createShip(data.type, data.x, data.y, data.team, false);
-        s.netId = id;
-        ships.push(s);
+    // --- CONFIGURATION NAVIRES ---
+    const SHIP_TYPES = {
+        SLOOP: { 
+            name: "Sloop", typeId: 'small', 
+            hp: 70, maxSpeed: 2.8, accel: 0.01, turnSpeed: 0.018, turnAccel: 0.0006, 
+            cannons: 1, reloadTime: 35, damage: 5, size: 0.8, burst: true, reward: 50 
+        },
+        BRIG: { 
+            name: "Brick", typeId: 'medium', 
+            hp: 180, maxSpeed: 1.8, accel: 0.006, turnSpeed: 0.010, turnAccel: 0.0003, 
+            cannons: 3, reloadTime: 100, damage: 8, size: 1.0, burst: false, reward: 100 
+        },
+        GALLEON: { 
+            name: "Galion", typeId: 'large', 
+            hp: 400, maxSpeed: 1.3, accel: 0.003, turnSpeed: 0.006, turnAccel: 0.0001, 
+            cannons: 6, reloadTime: 180, damage: 10, size: 1.3, burst: false, reward: 250 
+        },
+        MANOWAR: { 
+            name: "Man'o'War", typeId: 'xl', 
+            hp: 700, maxSpeed: 0.9, accel: 0.0015, turnSpeed: 0.003, turnAccel: 0.00005, 
+            cannons: 7, reloadTime: 240, damage: 14, size: 1.6, burst: false, reward: 500 
+        }
+    };
+
+    const WORLD_RADIUS = 5000; 
+    const WIN_SCORE = 25;
+    
+    const PORT_ISLAND_RADIUS = 70; 
+    const PORT_DOCK_RADIUS = 180;  
+    const PORTS = [
+        { x: 0, y: 1400, team: 'blue', dockSide: -Math.PI/2 }, 
+        { x: 0, y: -1400, team: 'red', dockSide: Math.PI/2 }   
+    ];
+
+    let gameState = 'MENU';
+    let gameMode = ''; 
+    let frameCount = 0;
+    let windDirection = Math.PI * 0.25;
+
+    let ships = []; 
+    let player = null; 
+    let playerGold = 0;
+    let playerDamageMult = 1.0;
+    let canOpenShop = false;
+    let scoreBlue = 0;
+    let scoreRed = 0;
+
+    let bullets = [];
+    let particles = [];
+    let islands = [];
+    let mines = [];
+
+    let camera = { x: 0, y: 0 };
+    
+    const keys = { left: false, right: false, up: false, fireLeft: false, fireRight: false, special: false };
+
+    // --- INPUTS ---
+    window.addEventListener('keydown', e => {
+        let code = e.code;
+        if(code === 'Escape' || code === 'KeyP') togglePause();
+        if(gameState === 'SHOP' && (code === 'Escape' || code === 'KeyB')) closeShop();
+        if(gameState !== 'PLAYING') return;
+        if(code === 'ArrowLeft' || code === 'KeyA') keys.left = true; 
+        if(code === 'ArrowRight' || code === 'KeyD') keys.right = true;
+        if(code === 'KeyQ') keys.fireLeft = true;
+        if(code === 'KeyE') keys.fireRight = true;
+        if(code === 'Space') keys.special = true;
+        if((code === 'ArrowUp' || code === 'KeyW' || code === 'KeyZ') && player) player.sailsUp = !player.sailsUp; 
+        if(code === 'KeyB' && canOpenShop) openShop();
+    });
+    window.addEventListener('keyup', e => {
+        let code = e.code;
+        if(code === 'ArrowLeft' || code === 'KeyA') keys.left = false;
+        if(code === 'ArrowRight' || code === 'KeyD') keys.right = false;
+        if(code === 'KeyQ') keys.fireLeft = false;
+        if(code === 'KeyE') keys.fireRight = false;
+        if(code === 'Space') keys.special = false;
+    });
+
+    function normalizeAngle(angle) { return angle - (2 * Math.PI) * Math.floor((angle + Math.PI) / (2 * Math.PI)); }
+
+    function resetMenu() {
+        modeSelectUI.classList.remove('hidden');
+        shipSelectUI.classList.add('hidden');
+        backBtn.classList.add('hidden');
+        menuDesc.innerText = "Choisissez votre mode de jeu :";
     }
 
-    const SHIP_TYPES = {
-        BRIG: { name: "Brick", hp: 180, maxSpeed: 1.8, accel: 0.006, turnSpeed: 0.010, turnAccel: 0.0003, size: 1.0 }
-    };
+    function selectMode(mode) {
+        gameMode = mode;
+        if (mode === 'EVOLUTION') {
+            startGame('BRIG'); 
+        } else {
+            modeSelectUI.classList.add('hidden');
+            shipSelectUI.classList.remove('hidden');
+            backBtn.classList.remove('hidden');
+            menuDesc.innerText = "Choisissez votre navire amiral :";
+        }
+    }
+
+    function startGame(playerShipType) {
+        ships = []; bullets = []; particles = []; mines = []; frameCount = 0; player = null;
+        playerGold = 0; playerDamageMult = 1.0;
+        scoreBlue = 0; scoreRed = 0;
+        goldValEl.innerText = "0";
+        specialUI.style.display = 'none';
+        windDirection = Math.random() * Math.PI * 2; updateWindUI();
+        generateIslands();
+        createFleet('blue', 0, 1400, gameMode, playerShipType);
+        createFleet('red', 0, -1400, gameMode, null);
+        updateScoreUI();
+        if(player) {
+            camera.x = player.x - (canvas.width / ZOOM_LEVEL) / 2;
+            camera.y = player.y - (canvas.height / ZOOM_LEVEL) / 2;
+        }
+        menuScreen.style.display = 'none'; overScreen.style.display = 'none'; pauseScreen.style.display = 'none'; uiLayer.style.display = 'block'; 
+        hpBar.style.width = "100%";
+        gameState = 'PLAYING'; loop();
+    }
+
+    function generateIslands() {
+        islands = [];
+        for(let i=0; i<40; i++) {
+            let baseR = 100 + Math.random() * 200;
+            let x, y, dist;
+            do { 
+                x = (Math.random() - 0.5) * (WORLD_RADIUS * 1.5); 
+                y = (Math.random() - 0.5) * (WORLD_RADIUS * 1.5); 
+                dist = Math.hypot(x, y);
+                let nearPort = false;
+                for(let p of PORTS) { if(Math.hypot(x-p.x, y-p.y) < PORT_DOCK_RADIUS + 300) nearPort = true; }
+                if(nearPort) dist = 0; 
+            } while(dist < 1000 || dist > WORLD_RADIUS - 300); 
+            let points = []; let steps = 12 + Math.floor(Math.random()*6);
+            for(let j=0; j<steps; j++) { let a = (j / steps) * Math.PI * 2; let rVar = baseR * (0.7 + Math.random() * 0.5); points.push({ x: Math.cos(a) * rVar, y: Math.sin(a) * rVar }); }
+            let details = []; for(let k=0; k<8; k++){ let a = Math.random()*Math.PI*2; let r = Math.random()*baseR*0.6; details.push({x: Math.cos(a)*r, y: Math.sin(a)*r, size: 2+Math.random()*3}); }
+            islands.push({ x, y, r: baseR * 0.9, type: Math.random() > 0.6 ? 'rock' : 'sand', rotation: Math.random() * Math.PI, points: points, details: details });
+        }
+    }
 
     function createShip(typeKey, x, y, team, isPlayer) {
         let stats = SHIP_TYPES[typeKey];
         return {
-            type: typeKey, stats: stats, team: team, isPlayer: isPlayer,
-            x: x, y: y, angle: 0, speed: 0, turnVel: 0, sailsUp: false,
-            hp: stats.hp, maxHp: stats.hp
+            id: Math.random(), type: typeKey, typeId: stats.typeId, stats: stats, team: team, isPlayer: isPlayer,
+            x: x, y: y, angle: team === 'blue' ? -Math.PI/2 : Math.PI/2, speed: 0, turnVel: 0, sailsUp: !isPlayer, 
+            hp: stats.hp, maxHp: stats.hp, reloadLeft: Math.random()*50, reloadRight: Math.random()*50,
+            burstQueueLeft: 0, burstQueueRight: 0, burstTimer: 0, aiTarget: null, aiState: 'search', goldReward: stats.reward,
+            specialType: 'NONE', specialCooldown: 0, maxSpecialCooldown: 600, slowTimer: 0 
         };
     }
 
-    const keys = { left: false, right: false };
-    window.addEventListener('keydown', e => {
-        if(e.code === 'KeyA' || e.code === 'ArrowLeft') keys.left = true;
-        if(e.code === 'KeyD' || e.code === 'ArrowRight') keys.right = true;
-        if(e.code === 'KeyW' || e.code === 'ArrowUp') if(player) player.sailsUp = !player.sailsUp;
-    });
-    window.addEventListener('keyup', e => {
-        if(e.code === 'KeyA' || e.code === 'ArrowLeft') keys.left = false;
-        if(e.code === 'KeyD' || e.code === 'ArrowRight') keys.right = false;
-    });
+    function upgradePlayerShip(newTypeKey) {
+        if(!player) return;
+        let oldSpecial = player.specialType;
+        let stats = SHIP_TYPES[newTypeKey];
+        player.type = newTypeKey; player.typeId = stats.typeId; player.stats = stats;
+        player.hp = stats.hp; player.maxHp = stats.hp; player.goldReward = stats.reward;
+        player.specialType = oldSpecial;
+        createExplosion(player.x, player.y, '#f1c40f', 2); 
+    }
 
-    function startGame(type) {
-        player = createShip(type, 0, 1400, 'blue', true);
-        ships.push(player);
-        gameState = 'PLAYING';
-        document.getElementById('menu-screen').style.display = 'none';
-        document.getElementById('ui-layer').style.display = 'block';
-        loop();
+    function createFleet(team, startX, startY, mode, playerShipType) {
+        let fleetConfig = [];
+        if (mode === 'EVOLUTION') { for(let i=0; i<4; i++) fleetConfig.push('BRIG'); } 
+        else { fleetConfig = ['GALLEON', 'BRIG', 'BRIG', 'SLOOP']; }
+        fleetConfig.forEach((type, index) => {
+            let spacing = 200;
+            let dx = (-((fleetConfig.length - 1) * spacing) / 2) + (index * spacing);
+            let ship = createShip(type, startX + dx, startY, team, false);
+            ships.push(ship);
+        });
+        if (team === 'blue') {
+            if (mode === 'EVOLUTION') { ships[0].isPlayer = true; player = ships[0]; } 
+            else if (playerShipType) {
+                let found = ships.find(s => s.type === playerShipType); 
+                if(found) { found.isPlayer = true; player = found; }
+                else { ships[0].isPlayer = true; player = ships[0]; if(playerShipType !== 'MANOWAR') upgradePlayerShip(playerShipType); }
+            }
+        }
+    }
+
+    function openShop() { if(gameState !== 'PLAYING') return; gameState = 'SHOP'; shopScreen.style.display = 'flex'; uiLayer.style.display = 'none'; updateShopUI(); }
+
+    function updateShopUI() {
+        shopGoldEl.innerText = playerGold;
+        shopBrig.className = "evo-step"; shopGalleon.className = "evo-step"; shopManowar.className = "evo-step";
+        if (player.type === 'BRIG') { shopBrig.classList.add('active'); shopGalleon.classList.add('next'); shopGalleon.onclick = () => buyShip('GALLEON'); } 
+        else if (player.type === 'GALLEON') { shopGalleon.classList.add('active'); shopManowar.classList.add('next'); shopManowar.onclick = () => buyShip('MANOWAR'); } 
+        else { shopManowar.classList.add('active'); }
+        const btnDamage = document.getElementById('btn-damage');
+        btnDamage.onclick = playerGold >= 200 ? buyDamage : null;
+        updateSpecialBtn('btn-mine', 'MINE', 300); updateSpecialBtn('btn-chain', 'CHAIN', 300);
+    }
+
+    function updateSpecialBtn(id, type, cost) {
+        const btn = document.getElementById(id);
+        if (player.specialType === type) { btn.classList.add('owned'); btn.onclick = null; } 
+        else { btn.classList.remove('owned'); btn.onclick = playerGold >= cost ? () => buySpecial(type) : null; }
+    }
+
+    function closeShop() { gameState = 'PLAYING'; shopScreen.style.display = 'none'; uiLayer.style.display = 'block'; }
+    function buyShip(type) { let cost = (type === 'GALLEON') ? 400 : 800; if (playerGold >= cost) { playerGold -= cost; upgradePlayerShip(type); updateShopUI(); } }
+    function buyDamage() { if (playerGold >= 200) { playerGold -= 200; playerDamageMult += 0.2; updateShopUI(); } }
+    function buySpecial(type) { if (playerGold >= 300) { playerGold -= 300; player.specialType = type; specialUI.style.display = 'flex'; updateShopUI(); } }
+
+    function respawnPlayer() {
+        gameState = 'RESPAWNING'; uiLayer.style.display = 'none'; respawnOverlay.style.display = 'flex';
+        setTimeout(() => {
+            player = createShip('BRIG', 0, 1400, 'blue', true); ships.push(player);
+            respawnOverlay.style.display = 'none'; uiLayer.style.display = 'block'; gameState = 'PLAYING';
+        }, 3000);
+    }
+
+    function respawnAI(team, mode) {
+        if (mode !== 'EVOLUTION') return;
+        setTimeout(() => {
+            let port = (team === 'blue') ? PORTS[0] : PORTS[1];
+            ships.push(createShip('BRIG', port.x, port.y, team, false));
+        }, 5000);
+    }
+
+    function updateWindUI() { windArrow.style.transform = `rotate(${windDirection}rad)`; }
+    function togglePause() { if(gameState === 'PLAYING') { gameState = 'PAUSED'; pauseScreen.style.display = 'flex'; uiLayer.style.display = 'none'; } else if(gameState === 'PAUSED') resumeGame(); }
+    function resumeGame() { gameState = 'PLAYING'; pauseScreen.style.display = 'none'; uiLayer.style.display = 'block'; updateWindUI(); }
+    function quitToMenu() { location.reload(); }
+    function updateScoreUI() { scoreBlueEl.innerText = scoreBlue; scoreRedEl.innerText = scoreRed; }
+    function createExplosion(x, y, color = '#e74c3c', size = 1) { for(let i=0; i<8*size; i++) { particles.push({ x: x, y: y, vx: (Math.random()-0.5) * 4, vy: (Math.random()-0.5) * 4, life: 1.0, color: color, size: Math.random() * 6 + 2, type: 'boom' }); } }
+
+    function applySailingPhysics(ship) {
+        let angleDiff = Math.abs(normalizeAngle(ship.angle - windDirection));
+        let speedFactor = angleDiff > 2.5 ? 0.25 : 1.0 - (angleDiff / 3.0) * 0.3;
+        if (ship.slowTimer > 0) { ship.slowTimer--; speedFactor *= 0.2; }
+        if (ship.sailsUp) { let target = ship.stats.maxSpeed * speedFactor; ship.speed += (target > ship.speed) ? ship.stats.accel : -0.01; } 
+        else { ship.speed *= 0.99; }
+    }
+
+    function updateAI(ship) {
+        let enemies = ships.filter(s => s.team !== ship.team);
+        if (enemies.length > 0) {
+            let t = enemies[0]; let dx = t.x - ship.x; let dy = t.y - ship.y;
+            let desired = Math.atan2(dy, dx) + (Math.hypot(dx, dy) < 700 ? Math.PI/2 : 0);
+            let diff = normalizeAngle(desired - ship.angle);
+            ship.turnVel += diff > 0 ? ship.stats.turnAccel : -ship.stats.turnAccel;
+            if (Math.hypot(dx, dy) < 1000) { if (ship.reloadLeft <= 0) initiateFire(ship, -1); if (ship.reloadRight <= 0) initiateFire(ship, 1); }
+        }
     }
 
     function update() {
         if(gameState !== 'PLAYING') return;
-
-        ships.forEach(s => {
+        frameCount++;
+        canOpenShop = false;
+        for (let i = ships.length - 1; i >= 0; i--) {
+            let s = ships[i];
+            applySailingPhysics(s);
             if (s.isPlayer) {
-                if(keys.left) s.turnVel -= s.stats.turnAccel;
-                if(keys.right) s.turnVel += s.stats.turnAccel;
-                s.turnVel *= 0.98;
-                s.angle += s.turnVel;
-                
-                if(s.sailsUp) s.speed = Math.min(s.speed + s.stats.accel, s.stats.maxSpeed);
-                else s.speed *= 0.99;
-                
-                s.x += Math.cos(s.angle) * s.speed;
-                s.y += Math.sin(s.angle) * s.speed;
-
+                if(keys.left) s.turnVel -= s.stats.turnAccel; if(keys.right) s.turnVel += s.stats.turnAccel;
+                if(keys.fireLeft && s.reloadLeft <= 0) initiateFire(s, -1); if(keys.fireRight && s.reloadRight <= 0) initiateFire(s, 1);
+                if(keys.special && s.specialCooldown <= 0) useSpecial(s);
+                if(s.specialCooldown > 0) s.specialCooldown--;
+                // AJOUT MULTIJOUEUR 4: ENVOI POSITION
                 socket.emit('playerMovement', { x: s.x, y: s.y, angle: s.angle, type: s.type });
-                
-                camera.x = s.x - (canvas.width/ZOOM_LEVEL)/2;
-                camera.y = s.y - (canvas.height/ZOOM_LEVEL)/2;
-            }
-        });
+            } else if (!s.netId) { updateAI(s); }
+            s.turnVel *= 0.98; s.angle += s.turnVel * Math.min(1, Math.abs(s.speed)/0.2);
+            s.x += Math.cos(s.angle) * s.speed; s.y += Math.sin(s.angle) * s.speed;
+            if(s.hp <= 0) { createExplosion(s.x, s.y, '#f1c40f', 3); ships.splice(i,1); if(s.isPlayer) respawnPlayer(); }
+        }
+        for (let i = bullets.length - 1; i >= 0; i--) { let b = bullets[i]; b.x += b.vx; b.y += b.vy; b.life -= 0.01; if(b.life <= 0) bullets.splice(i,1); }
+        if (player) { camera.x = player.x - (canvas.width/ZOOM_LEVEL)/2; camera.y = player.y - (canvas.height/ZOOM_LEVEL)/2; }
     }
+
+    function initiateFire(ship, sideDir) { fireVolley(ship, sideDir); if(sideDir === -1) ship.reloadLeft = ship.stats.reloadTime; else ship.reloadRight = ship.stats.reloadTime; }
+    function fireVolley(ship, sideDir) {
+        for(let i=0; i<ship.stats.cannons; i++) {
+            let ang = ship.angle + (sideDir * Math.PI/2);
+            bullets.push({ x: ship.x, y: ship.y, vx: Math.cos(ang)*6, vy: Math.sin(ang)*6, life: 1.0, team: ship.team, damage: ship.stats.damage });
+        }
+    }
+
+    function useSpecial(ship) { ship.specialCooldown = 600; if(ship.specialType === 'MINE') mines.push({x:ship.x, y:ship.y, team:ship.team, life:1.0}); }
 
     function draw() {
-        ctx.fillStyle = '#012942';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.save();
-        ctx.scale(ZOOM_LEVEL, ZOOM_LEVEL);
-        ctx.translate(-camera.x, -camera.y);
-
-        ships.forEach(s => {
-            ctx.save();
-            ctx.translate(s.x, s.y);
-            ctx.rotate(s.angle);
-            ctx.fillStyle = s.team === 'blue' ? '#3498db' : '#e74c3c';
-            ctx.fillRect(-20, -10, 40, 20);
-            if(s.sailsUp) { ctx.fillStyle = '#fff'; ctx.fillRect(-5, -15, 10, 30); }
-            ctx.restore();
+        ctx.fillStyle = '#012942'; ctx.fillRect(0,0, canvas.width, canvas.height);
+        ctx.save(); ctx.scale(ZOOM_LEVEL, ZOOM_LEVEL); ctx.translate(-camera.x, -camera.y);
+        islands.forEach(isle => { ctx.fillStyle = isle.type === 'sand' ? '#e6cca0' : '#546e7a'; ctx.beginPath(); ctx.arc(isle.x, isle.y, isle.r, 0, Math.PI*2); ctx.fill(); });
+        ships.forEach(s => { 
+            ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.angle); ctx.fillStyle = s.team === 'blue' ? '#3498db' : '#e74c3c';
+            ctx.fillRect(-20*s.stats.size, -10*s.stats.size, 40*s.stats.size, 20*s.stats.size); ctx.restore(); 
         });
+        bullets.forEach(b => { ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI*2); ctx.fill(); });
         ctx.restore();
-    }
-
-    function loop() {
-        update();
-        draw();
         requestAnimationFrame(loop);
     }
 
-    window.addEventListener('resize', () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    });
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    function loop() { update(); draw(); }
+    window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+    draw();
 </script>
 </body>
 </html>
