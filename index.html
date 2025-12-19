@@ -1,0 +1,44 @@
+const io = require('socket.io')(process.env.PORT || 3000, {
+    cors: { origin: "*" }
+});
+
+let players = {};
+
+io.on('connection', (socket) => {
+    console.log('Un joueur s\'est connecté : ' + socket.id);
+
+    // Créer le joueur dans la liste
+    players[socket.id] = {
+        id: socket.id,
+        x: 0,
+        y: 1400,
+        angle: 0,
+        type: 'BRIG',
+        team: Math.random() > 0.5 ? 'blue' : 'red'
+    };
+
+    // Envoyer les données au nouveau joueur
+    socket.emit('currentPlayers', players);
+
+    // Informer les autres qu'un nouveau est arrivé
+    socket.broadcast.emit('newPlayer', players[socket.id]);
+
+    // Quand un joueur bouge
+    socket.on('playerMovement', (movementData) => {
+        if (players[socket.id]) {
+            players[socket.id].x = movementData.x;
+            players[socket.id].y = movementData.y;
+            players[socket.id].angle = movementData.angle;
+            players[socket.id].type = movementData.type;
+            // Diffuser à tout le monde sauf à soi-même
+            socket.broadcast.emit('playerMoved', players[socket.id]);
+        }
+    });
+
+    // Déconnexion
+    socket.on('disconnect', () => {
+        console.log('Joueur déconnecté : ' + socket.id);
+        delete players[socket.id];
+        io.emit('playerDisconnected', socket.id);
+    });
+});
