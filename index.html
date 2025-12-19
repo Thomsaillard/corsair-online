@@ -5,229 +5,1211 @@
     <meta charset="UTF-8">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        /* --- STYLE GENERAL (STRICTEMENT INCHANGÉ) --- */
+        /* --- STYLE GENERAL --- */
         body { margin: 0; background: #000c18; overflow: hidden; font-family: 'Garamond', serif; color: #ecf0f1; user-select: none; }
         canvas { display: block; }
 
-        /* --- UI EN JEU (INCHANGÉ) --- */
+        /* --- UI EN JEU --- */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
-        .score-board { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 20px; background: rgba(0,0,0,0.6); padding: 10px 30px; border-radius: 0 0 15px 15px; border: 1px solid #555; border-top: none; }
+        
+        .score-board {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            display: flex; align-items: center; gap: 20px;
+            background: rgba(0,0,0,0.6); padding: 10px 30px; border-radius: 0 0 15px 15px; border: 1px solid #555; border-top: none;
+        }
         .score-team { font-size: 28px; font-weight: bold; text-shadow: 2px 2px 0 #000; min-width: 60px; text-align: center; }
         .blue-team { color: #3498db; } .red-team { color: #e74c3c; }
         .score-target { color: #aaa; font-size: 16px; text-transform: uppercase; letter-spacing: 2px; }
+
         .hud-top-left { position: absolute; top: 20px; left: 20px; display: flex; flex-direction: column; gap: 15px; }
         .health-container { width: 280px; height: 16px; background: #000; border: 2px solid #daa520; border-radius: 4px; }
         .health-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #8b0000, #ff0000); transition: width 0.3s; }
+        
         #wind-compass { width: 80px; height: 80px; background: #d2b48c; border: 4px solid #5d4037; border-radius: 50%; position: relative; margin-top: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.8); }
         #wind-arrow { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
         #wind-arrow::after { content: '➤'; font-size: 30px; color: #8b0000; transform: rotate(90deg); }
+        
+        #wind-warning { color: #ffcc00; font-weight: bold; font-size: 18px; text-shadow: 2px 2px 0 #000; display: none; margin-top:5px;}
         #boundary-warning { position: absolute; top: 15%; width: 100%; text-align: center; font-size: 45px; color: #ff3333; font-weight: bold; text-shadow: 0 0 20px #000; display: none; }
+        
+        /* --- NOUVEAU: UI SPECIAL --- */
+        .special-ability-ui { display: flex; align-items: center; gap: 10px; margin-top: 10px; display: none; }
+        .special-icon { width: 50px; height: 50px; background: #333; border: 2px solid #777; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 24px; transition: 0.3s; position: relative; overflow: hidden; }
+        .special-icon.ready { border-color: #00d2d3; box-shadow: 0 0 15px #00d2d3; background: #003333; cursor: pointer; }
+        .special-fill { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.7); transition: height 0.1s; }
+        .special-text { font-size: 14px; color: #ccc; text-shadow: 1px 1px 0 #000; font-weight: bold; }
 
-        /* --- MENUS --- */
+        #repair-msg { position: absolute; bottom: 180px; left: 50%; transform: translateX(-50%); color: #2ecc71; font-weight: bold; font-size: 20px; text-shadow: 1px 1px 0 #000; display:none; background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 20px; border: 1px solid #2ecc71; }
+        #shop-hint { position: absolute; bottom: 140px; left: 50%; transform: translateX(-50%); color: #f1c40f; font-weight: bold; font-size: 22px; text-shadow: 1px 1px 0 #000; display:none; animation: pulse 1s infinite; background: rgba(0,0,0,0.7); padding: 10px 20px; border: 2px solid #f1c40f; border-radius: 8px; pointer-events: auto; cursor:pointer;}
+        @keyframes pulse { 0% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.05); } 100% { transform: translateX(-50%) scale(1); } }
+
+        #transfer-msg { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 28px; font-weight: bold; text-shadow: 0 0 10px #000; background: rgba(0, 0, 0, 0.7); padding: 20px 40px; border: 2px solid #3498db; border-radius: 8px; display: none; z-index: 10; pointer-events: none; text-align: center; }
+        .blink { animation: blinker 0.2s linear 3; }
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        .gold-display { font-size: 32px; color: #f1c40f; font-weight: bold; text-shadow: 2px 2px 0 #000; display: flex; align-items: center; gap: 10px; }
+        .cannons-ui { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 60px; }
+        .cannon-dial { width: 80px; height: 80px; border-radius: 50%; background: #222; border: 4px solid #555; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; color: #888; transition: 0.3s; box-shadow: 0 0 20px #000; }
+        .cannon-dial.ready { border-color: #ffcc00; color: #fff; box-shadow: 0 0 25px rgba(255, 204, 0, 0.4); background: #443300; transform: scale(1.1); }
+        .cannon-dial .key-hint { font-size: 20px; display: block; margin-bottom: 2px; color: #fff; }
+
+        /* MENUS */
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 5, 10, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; z-index: 20; backdrop-filter: blur(5px); }
         .menu-panel { background: #1e1e1e; border: 4px solid #daa520; border-radius: 12px; padding: 40px; text-align: center; box-shadow: 0 0 60px rgba(0,0,0,1); position: relative; max-width: 900px; width: 90%; }
         h1 { font-size: 70px; margin: 0; text-transform: uppercase; font-style: italic; color: #daa520; text-shadow: 4px 4px 0 #000; letter-spacing: 4px; }
         h2 { color: #888; margin-top: 5px; font-size: 20px; letter-spacing: 3px; text-transform: uppercase; border-bottom: 1px solid #444; padding-bottom: 20px; margin-bottom: 30px;}
-        .mode-selector { display: flex; gap: 30px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }
+        .desc { color: #ccc; margin: 20px 0; font-size: 18px; }
+
+        .mode-selector, .ship-selector { display: flex; gap: 30px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }
         .mode-btn { background: #333; border: 2px solid #555; padding: 25px; width: 300px; cursor: pointer; transition: 0.3s; border-radius: 8px; }
         .mode-btn:hover { background: #444; border-color: #daa520; transform: translateY(-5px); }
+        .mode-title { font-size: 24px; color: #ffcc00; font-weight: bold; display: block; margin-bottom: 10px; }
+        .mode-desc { font-size: 14px; color: #bbb; line-height: 1.4; }
+
+        .ship-card { background: rgba(0,0,0,0.3); padding: 15px; border: 1px solid #555; border-radius: 8px; width: 200px; cursor: pointer; transition: 0.2s; }
+        .ship-card:hover { border-color: #daa520; transform: translateY(-5px); }
+        .ship-title { font-weight: bold; color: #ffcc00; font-size: 20px; margin-bottom: 10px; display:block; }
+        .target-hint { font-size: 12px; color: #aaa; margin-top: 5px; }
+
+        /* SHOP */
+        .evolution-path { display: flex; align-items: center; justify-content: center; gap: 15px; margin-top: 20px; }
+        .evo-step { background: #222; border: 2px solid #444; padding: 20px; border-radius: 10px; width: 220px; position: relative; opacity: 0.6; transition: 0.3s; }
+        .evo-step.active { border-color: #2ecc71; opacity: 1; box-shadow: 0 0 15px rgba(46, 204, 113, 0.2); }
+        .evo-step.next { border-color: #f1c40f; opacity: 1; cursor: pointer; transform: scale(1.05); box-shadow: 0 0 20px rgba(241, 196, 15, 0.3); }
+        .evo-step.locked { opacity: 0.4; }
+        .evo-arrow { font-size: 30px; color: #666; }
+        .item-price { color: #f1c40f; font-weight: bold; font-size: 18px; margin-top: 5px; display:block; }
+
+        .upgrade-box { margin-top: 30px; border-top: 1px solid #444; padding-top: 20px; display:flex; gap:20px; justify-content:center; flex-wrap:wrap;}
+        .upgrade-btn { background: #e74c3c; padding: 15px 30px; font-size: 18px; border: 2px solid #c0392b; color: white; cursor: pointer; border-radius: 5px; min-width: 250px; }
+        .upgrade-btn:hover { background: #c0392b; }
+        .upgrade-btn.disabled { background: #333; border-color: #555; color: #777; cursor: not-allowed; transform: none !important; filter: none !important; }
+        .upgrade-btn.owned { background: #27ae60; border-color: #2ecc71; cursor: default; }
+
         button { background: #8b0000; color: #ffcc00; border: 2px solid #ffcc00; padding: 15px 40px; font-size: 20px; font-family: 'Garamond', serif; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 20px;}
-        
-        /* MULTI START: Style Lobby */
-        #lobby-status { font-size: 24px; color: #00d2d3; margin: 20px; }
-        .ready-btn { background: #27ae60; border-color: #2ecc71; }
-        .ready-btn.waiting { background: #c0392b; border-color: #e74c3c; }
-        /* MULTI END */
+        button:hover { transform: translateY(-3px); filter: brightness(1.2); }
+        .btn-secondary { background: #333; border-color: #888; color: #ddd; margin-left: 10px; }
+        .hidden { display: none !important; }
+
+        #respawn-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(50, 0, 0, 0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 30; }
+        #respawn-text { font-size: 60px; color: #e74c3c; font-weight: bold; text-shadow: 0 0 20px #000; }
+        #respawn-sub { font-size: 24px; color: #fff; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div id="ui-layer" style="display:none;">
     <div id="boundary-warning">⚠️ FIN DU MONDE ⚠️</div>
+    
     <div class="score-board">
         <div class="score-team blue-team" id="score-blue">0</div>
-        <div class="score-target" id="score-target-text">Objectif: 10</div>
+        <div class="score-target" id="score-target-text">Objectif: 25</div>
         <div class="score-team red-team" id="score-red">0</div>
     </div>
+
+    <div id="repair-msg">🛠️ RÉPARATIONS EN COURS 🛠️</div>
+    <div id="shop-hint" onclick="openShop()">[B] CHANTIER NAVAL</div>
+    <div id="transfer-msg">NAVIRE COULÉ !<br><span style="font-size:18px; color:#3498db">Commandement transféré</span></div>
+    
     <div class="hud-top-left">
         <div class="gold-display"><span class="gold-icon">💰</span> <span id="gold-val">0</span></div>
         <div class="health-container"><div id="hp-bar" class="health-fill"></div></div>
-        <div id="wind-compass"><div id="wind-arrow"></div></div>
+        
+        <div id="special-ui" class="special-ability-ui">
+            <div id="special-icon" class="special-icon">
+                <div id="special-fill" class="special-fill"></div>
+                <span id="special-symbol">★</span>
+            </div>
+            <span class="special-text">[ESPACE] <span id="special-name">Capacité</span></span>
+        </div>
+
+        <div id="wind-compass"><div class="slow-zone"></div><div id="wind-arrow"></div></div>
+        <div id="wind-warning">VENT DE FACE</div>
+    </div>
+    <div class="cannons-ui">
+        <div id="dial-left" class="cannon-dial"><span class="key-hint">A / Q</span>BÂBORD</div>
+        <div id="dial-right" class="cannon-dial"><span class="key-hint">E</span>TRIBORD</div>
     </div>
 </div>
 
-<div id="lobby-screen" class="overlay" style="display:none;">
-    <div class="menu-panel">
-        <h1>SALON MULTI</h1>
-        <div id="lobby-status">Attente de joueurs... (1/2)</div>
-        <div id="ship-info" style="margin: 20px; color: #aaa;">Tous les joueurs seront en : <b style="color:#ffcc00">BRICK</b></div>
-        <button id="ready-btn" class="ready-btn" onclick="toggleReady()">JE SUIS PRÊT</button>
-        <button class="btn-secondary" onclick="location.reload()">ANNULER</button>
-    </div>
+<div id="respawn-overlay">
+    <div id="respawn-text">NAVIRE PERDU</div>
+    <div id="respawn-sub">Retour au port... (Réinitialisation)</div>
 </div>
+
 <div id="menu-screen" class="overlay">
     <div class="menu-panel">
-        <h1>Corsair</h1><h2>Naval Legends</h2>
-        <div class="mode-selector">
-            <div class="mode-btn" onclick="selectMode('EVOLUTION')">⚓ MODE ÉVOLUTION</div>
-            <div class="mode-btn" onclick="selectMode('FLEET')">⚔️ BATAILLE RAPIDE</div>
-            <div class="mode-btn" style="border-color: #00d2d3;" onclick="selectMode('MULTI')">🌐 MODE MULTIJOUEUR</div>
+        <h1>Corsair</h1>
+        <h2>Naval Legends</h2>
+        <div class="desc" id="menu-desc">Choisissez votre mode de jeu :</div>
+        
+        <div id="mode-select-ui" class="mode-selector">
+            <div class="mode-btn" onclick="selectMode('EVOLUTION')">
+                <span class="mode-title">⚓ MODE ÉVOLUTION (4v4)</span>
+                <span class="mode-desc">Commencez en Brick. Gagnez de l'or. Achetez le Man'o'War. Respawn au port.</span>
             </div>
+            <div class="mode-btn" onclick="selectMode('FLEET')">
+                <span class="mode-title">⚔️ BATAILLE RAPIDE (4v4)</span>
+                <span class="mode-desc">Combattez jusqu'à l'élimination totale. Pas de respawn. Pas de Man'o'War.</span>
+            </div>
+        </div>
+
+        <div id="ship-select-ui" class="ship-selector hidden">
+            <div class="ship-card" onclick="startGame('SLOOP')">
+                <span class="ship-title">SLOOP</span>
+                <div class="target-hint">Rapide - Fragile</div>
+            </div>
+            <div class="ship-card" onclick="startGame('BRIG')">
+                <span class="ship-title">BRICK</span>
+                <div class="target-hint">Équilibré</div>
+            </div>
+            <div class="ship-card" onclick="startGame('GALLEON')">
+                <span class="ship-title">GALION</span>
+                <div class="target-hint">Tank - Lent</div>
+            </div>
+        </div>
+        
+        <button id="back-btn" class="btn-secondary hidden" onclick="resetMenu()">RETOUR</button>
+    </div>
+</div>
+
+<div id="shop-screen" class="overlay" style="display:none;">
+    <div class="menu-panel" style="max-width: 950px;">
+        <h1>CHANTIER NAVAL</h1>
+        <div class="gold-display" style="justify-content: center; margin-bottom: 20px;">Or disponible : <span id="shop-gold">0</span></div>
+        
+        <div class="evolution-path">
+            <div id="shop-brig" class="evo-step active">
+                <span class="ship-title">1. BRICK</span>
+                <div class="desc" style="font-size:14px;">Navire de départ.<br>3 Canons</div>
+                <div style="color:#2ecc71; font-weight:bold; margin-top:10px;">POSSÉDÉ</div>
+            </div>
+            
+            <div class="evo-arrow">➜</div>
+
+            <div id="shop-galleon" class="evo-step locked" onclick="buyShip('GALLEON')">
+                <span class="ship-title">2. GALION</span>
+                <div class="desc" style="font-size:14px;">Coque renforcée.<br>6 Canons</div>
+                <div class="item-price">400 💰</div>
+            </div>
+
+            <div class="evo-arrow">➜</div>
+
+            <div id="shop-manowar" class="evo-step locked" onclick="buyShip('MANOWAR')">
+                <span class="ship-title" style="color:#e74c3c">3. MAN'O'WAR</span>
+                <div class="desc" style="font-size:14px;">La Forteresse.<br>7 Canons</div>
+                <div class="item-price">800 💰</div>
+            </div>
+        </div>
+
+        <div class="upgrade-box">
+            <button id="btn-damage" class="upgrade-btn" onclick="buyDamage()">
+                POUDRE NOIRE (+20%)<br><span style="font-size:14px">Dégâts canons</span><br>
+                <span style="font-weight:bold; color:#f1c40f">200 💰</span>
+            </button>
+            
+            <button id="btn-mine" class="upgrade-btn" onclick="buySpecial('MINE')">
+                MINES FLOTTANTES<br><span style="font-size:14px">Piège explosif (Espace)</span><br>
+                <span id="price-mine" style="font-weight:bold; color:#f1c40f">300 💰</span>
+            </button>
+
+            <button id="btn-chain" class="upgrade-btn" onclick="buySpecial('CHAIN')">
+                BOULETS CHAÎNÉS<br><span style="font-size:14px">Ralentit l'ennemi (Espace)</span><br>
+                <span id="price-chain" style="font-weight:bold; color:#f1c40f">300 💰</span>
+            </button>
+        </div>
+
+        <button class="btn-secondary" onclick="closeShop()">RETOURNER AU COMBAT</button>
+    </div>
+</div>
+
+<div id="gameover-screen" class="overlay" style="display:none;">
+    <div class="menu-panel">
+        <h1 id="end-title">TITRE</h1>
+        <h2 id="end-msg" style="border:none;">Message</h2>
+        <button onclick="location.reload()">MENU PRINCIPAL</button>
+    </div>
+</div>
+
+<div id="pause-screen" class="overlay" style="display:none;">
+    <div class="menu-panel">
+        <h1>PAUSE</h1>
+        <button onclick="resumeGame()">REPRENDRE</button><br><button class="btn-secondary" onclick="quitToMenu()">QUITTER</button>
     </div>
 </div>
 
 <canvas id="gameCanvas"></canvas>
 
 <script>
-    // MULTI START: Variables & Connexion
+    // MULTI START: Connexion
     const socket = io('https://corsair-online.onrender.com');
-    let isReady = false;
-    let netPlayers = {};
     // MULTI END
 
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const ZOOM_LEVEL = 0.8; 
 
-    const SHIP_TYPES = {
-        SLOOP: { name: "Sloop", typeId: 'small', hp: 70, maxSpeed: 2.8, accel: 0.01, turnSpeed: 0.018, turnAccel: 0.0006, cannons: 1, reloadTime: 35, damage: 5, size: 0.8, burst: true, reward: 50 },
-        BRIG: { name: "Brick", typeId: 'medium', hp: 180, maxSpeed: 1.8, accel: 0.006, turnSpeed: 0.010, turnAccel: 0.0003, cannons: 3, reloadTime: 100, damage: 8, size: 1.0, burst: false, reward: 100 },
-        GALLEON: { name: "Galion", typeId: 'large', hp: 400, maxSpeed: 1.3, accel: 0.003, turnSpeed: 0.006, turnAccel: 0.0001, cannons: 6, reloadTime: 180, damage: 10, size: 1.3, burst: false, reward: 250 },
-        MANOWAR: { name: "Man'o'War", typeId: 'xl', hp: 700, maxSpeed: 0.9, accel: 0.0015, turnSpeed: 0.003, turnAccel: 0.00005, cannons: 7, reloadTime: 240, damage: 14, size: 1.6, burst: false, reward: 500 }
-    };
+    // UI Refs
+    const uiLayer = document.getElementById('ui-layer');
+    const menuScreen = document.getElementById('menu-screen');
+    const modeSelectUI = document.getElementById('mode-select-ui');
+    const shipSelectUI = document.getElementById('ship-select-ui');
+    const backBtn = document.getElementById('back-btn');
+    const menuDesc = document.getElementById('menu-desc');
+    const shopScreen = document.getElementById('shop-screen');
+    const overScreen = document.getElementById('gameover-screen');
+    const respawnOverlay = document.getElementById('respawn-overlay');
+    const pauseScreen = document.getElementById('pause-screen');
+    const hpBar = document.getElementById('hp-bar');
+    const goldValEl = document.getElementById('gold-val');
+    const shopGoldEl = document.getElementById('shop-gold');
+    const dialLeft = document.getElementById('dial-left');
+    const dialRight = document.getElementById('dial-right');
+    const windArrow = document.getElementById('wind-arrow');
+    const windWarning = document.getElementById('wind-warning');
+    const boundaryWarning = document.getElementById('boundary-warning');
+    const scoreBlueEl = document.getElementById('score-blue');
+    const scoreRedEl = document.getElementById('score-red');
+    const scoreTargetText = document.getElementById('score-target-text');
+    const transferMsg = document.getElementById('transfer-msg');
+    const repairMsg = document.getElementById('repair-msg');
+    const shopHint = document.getElementById('shop-hint');
+    const endTitle = document.getElementById('end-title');
+    const endMsg = document.getElementById('end-msg');
 
-    const PORTS = [{ x: 0, y: 1400, team: 'blue', dockSide: -Math.PI/2 }, { x: 0, y: -1400, team: 'red', dockSide: Math.PI/2 }];
-    const WORLD_RADIUS = 5000;
-    
-    let gameState = 'MENU', gameMode = '', frameCount = 0, windDirection = Math.PI * 0.25;
-    let ships = [], player = null, playerGold = 0, bullets = [], islands = [], camera = { x: 0, y: 0 };
-    const keys = { left: false, right: false, up: false, fireLeft: false, fireRight: false };
+    // NOUVEAU UI REFS
+    const specialUI = document.getElementById('special-ui');
+    const specialIcon = document.getElementById('special-icon');
+    const specialFill = document.getElementById('special-fill');
+    const specialName = document.getElementById('special-name');
+    const specialSymbol = document.getElementById('special-symbol');
 
-    // --- MULTI START: Gestion Salon ---
-    socket.on('lobbyUpdate', (count) => {
-        document.getElementById('lobby-status').innerText = `Joueurs connectés : ${count} / 2`;
+    // Shop Elements
+    const shopBrig = document.getElementById('shop-brig');
+    const shopGalleon = document.getElementById('shop-galleon');
+    const shopManowar = document.getElementById('shop-manowar');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // MULTI START: Listeners Réseau
+    socket.on('currentPlayers', (serverPlayers) => {
+        Object.keys(serverPlayers).forEach((id) => {
+            if (id !== socket.id) {
+                const p = serverPlayers[id];
+                let otherShip = createShip(p.type, p.x, p.y, p.team, false);
+                otherShip.netId = id;
+                ships.push(otherShip);
+            }
+        });
     });
-
-    socket.on('startGameMulti', (data) => {
-        // Le serveur lance la partie pour tout le monde
-        startGame('BRIG'); 
+    socket.on('newPlayer', (p) => {
+        let otherShip = createShip(p.type, p.x, p.y, p.team, false);
+        otherShip.netId = p.id;
+        ships.push(otherShip);
     });
-
     socket.on('playerMoved', (p) => {
-        if (gameMode !== 'MULTI') return;
-        let ship = ships.find(s => s.netId === p.id);
-        if (ship) { ship.x = p.x; ship.y = p.y; ship.angle = p.angle; }
-        else {
-            let s = createShip('BRIG', p.x, p.y, p.team, false);
-            s.netId = p.id; ships.push(s);
+        const ship = ships.find(s => s.netId === p.id);
+        if (ship) {
+            ship.x = p.x; ship.y = p.y; ship.angle = p.angle;
         }
     });
-
-    function toggleReady() {
-        isReady = !isReady;
-        document.getElementById('ready-btn').innerText = isReady ? "ATTENTE AUTRE JOUEUR..." : "JE SUIS PRÊT";
-        document.getElementById('ready-btn').className = isReady ? "ready-btn waiting" : "ready-btn";
-        socket.emit('playerReady', isReady);
-    }
+    socket.on('playerDisconnected', (id) => {
+        ships = ships.filter(s => s.netId !== id);
+    });
     // MULTI END
+
+    // --- CONFIGURATION NAVIRES ---
+    const SHIP_TYPES = {
+        SLOOP: { 
+            name: "Sloop", typeId: 'small', 
+            hp: 70, maxSpeed: 2.8, accel: 0.01, turnSpeed: 0.018, turnAccel: 0.0006, 
+            cannons: 1, reloadTime: 35, damage: 5, size: 0.8, burst: true, reward: 50 
+        },
+        BRIG: { 
+            name: "Brick", typeId: 'medium', 
+            hp: 180, maxSpeed: 1.8, accel: 0.006, turnSpeed: 0.010, turnAccel: 0.0003, 
+            cannons: 3, reloadTime: 100, damage: 8, size: 1.0, burst: false, reward: 100 
+        },
+        GALLEON: { 
+            name: "Galion", typeId: 'large', 
+            hp: 400, maxSpeed: 1.3, accel: 0.003, turnSpeed: 0.006, turnAccel: 0.0001, 
+            cannons: 6, reloadTime: 180, damage: 10, size: 1.3, burst: false, reward: 250 
+        },
+        MANOWAR: { 
+            name: "Man'o'War", typeId: 'xl', 
+            hp: 700, maxSpeed: 0.9, accel: 0.0015, turnSpeed: 0.003, turnAccel: 0.00005, 
+            cannons: 7, reloadTime: 240, damage: 14, size: 1.6, burst: false, reward: 500 
+        }
+    };
+
+    const WORLD_RADIUS = 5000; 
+    const WIN_SCORE = 25;
+    
+    const PORT_ISLAND_RADIUS = 70; 
+    const PORT_DOCK_RADIUS = 180;  
+    const PORTS = [
+        { x: 0, y: 1400, team: 'blue', dockSide: -Math.PI/2 }, 
+        { x: 0, y: -1400, team: 'red', dockSide: Math.PI/2 }   
+    ];
+
+    let gameState = 'MENU';
+    let gameMode = ''; 
+    let frameCount = 0;
+    let windDirection = Math.PI * 0.25;
+
+    let ships = []; 
+    let player = null; 
+    let playerGold = 0;
+    let playerDamageMult = 1.0;
+    let canOpenShop = false;
+    let scoreBlue = 0;
+    let scoreRed = 0;
+
+    let bullets = [];
+    let particles = [];
+    let islands = [];
+    // --- NOUVEAU: TABLEAU POUR LES MINES ---
+    let mines = [];
+
+    let camera = { x: 0, y: 0 };
+    
+    // NOUVEAU: Input SPACE
+    const keys = { left: false, right: false, up: false, fireLeft: false, fireRight: false, special: false };
+
+    // --- INPUTS ---
+    window.addEventListener('keydown', e => {
+        let code = e.code;
+        if(code === 'Escape' || code === 'KeyP') togglePause();
+        if(gameState === 'SHOP' && (code === 'Escape' || code === 'KeyB')) closeShop();
+        
+        if(gameState !== 'PLAYING') return;
+        
+        if(code === 'ArrowLeft' || code === 'KeyA') keys.left = true; 
+        if(code === 'ArrowRight' || code === 'KeyD') keys.right = true;
+        if(code === 'KeyQ') keys.fireLeft = true;
+        if(code === 'KeyE') keys.fireRight = true;
+        if(code === 'Space') keys.special = true; // NOUVEAU
+        if((code === 'ArrowUp' || code === 'KeyW' || code === 'KeyZ') && player) player.sailsUp = !player.sailsUp; 
+        if(code === 'KeyB' && canOpenShop) openShop();
+    });
+    window.addEventListener('keyup', e => {
+        let code = e.code;
+        if(code === 'ArrowLeft' || code === 'KeyA') keys.left = false;
+        if(code === 'ArrowRight' || code === 'KeyD') keys.right = false;
+        if(code === 'KeyQ') keys.fireLeft = false;
+        if(code === 'KeyE') keys.fireRight = false;
+        if(code === 'Space') keys.special = false; // NOUVEAU
+    });
+
+    function normalizeAngle(angle) { return angle - (2 * Math.PI) * Math.floor((angle + Math.PI) / (2 * Math.PI)); }
+
+    // --- LOGIQUE MENU ---
+    function resetMenu() {
+        modeSelectUI.classList.remove('hidden');
+        shipSelectUI.classList.add('hidden');
+        backBtn.classList.add('hidden');
+        menuDesc.innerText = "Choisissez votre mode de jeu :";
+    }
 
     function selectMode(mode) {
         gameMode = mode;
-        if (mode === 'MULTI') {
-            document.getElementById('menu-screen').style.display = 'none';
-            document.getElementById('lobby-screen').style.display = 'flex';
+        if (mode === 'EVOLUTION') {
+            startGame('BRIG'); 
         } else {
-            startGame('BRIG');
+            modeSelectUI.classList.add('hidden');
+            shipSelectUI.classList.remove('hidden');
+            backBtn.classList.remove('hidden');
+            menuDesc.innerText = "Choisissez votre navire amiral :";
         }
     }
 
-    // --- FONCTIONS DE DESSIN ORIGINALES (ABSOULEMENT INCHANGÉES) ---
-    function drawShip(ctx, ship) {
-        let size = ship.stats.size; let type = ship.type;
-        ctx.save(); ctx.translate(ship.x, ship.y); ctx.rotate(ship.angle); ctx.scale(size, size);
-        ctx.fillStyle = ship.team === 'blue' ? '#5d4037' : '#3e1a1a';
-        ctx.beginPath();
-        if(type === 'GALLEON' || type === 'MANOWAR') {
-            let w = type === 'MANOWAR' ? 70 : 60;
-            ctx.moveTo(-50, -18); ctx.bezierCurveTo(-30, -28, 30, -28, w, -5); ctx.lineTo(w+5, 0); ctx.lineTo(w, 5); ctx.bezierCurveTo(30, 28, -30, 28, -50, 18);
-        } else if (type === 'SLOOP') { ctx.ellipse(0, 0, 30, 12, 0, 0, Math.PI*2); }
-        else { ctx.moveTo(-40, -12); ctx.bezierCurveTo(-20, -18, 20, -18, 50, -2); ctx.lineTo(55, 0); ctx.lineTo(50, 2); ctx.bezierCurveTo(20, 18, -20, 18, -40, 12); }
-        ctx.closePath(); ctx.fill(); ctx.stroke();
-        let masts = type==='SLOOP' ? [0] : type==='BRIG' ? [-15, 15] : type==='GALLEON' ? [-30, 0, 30] : [-40, -10, 20, 50];
-        masts.forEach(mX => {
-            ctx.fillStyle = '#3e2723'; ctx.beginPath(); ctx.arc(mX, 0, 4, 0, Math.PI*2); ctx.fill();
-            if (ship.sailsUp) { ctx.fillStyle = ship.team === 'blue' ? '#ecf0f1' : '#c0392b'; ctx.fillRect(mX-3, -25, 6, 50); }
-        });
-        if (ship.isPlayer) { ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.moveTo(0,-20); ctx.lineTo(-10,-30); ctx.lineTo(10,-30); ctx.fill(); }
-        ctx.restore();
+    function startGame(playerShipType) {
+        ships = []; bullets = []; particles = []; mines = []; frameCount = 0; player = null;
+        playerGold = 0; playerDamageMult = 1.0;
+        scoreBlue = 0; scoreRed = 0;
+        
+        goldValEl.innerText = "0";
+        specialUI.style.display = 'none'; // Reset UI
+
+        windDirection = Math.random() * Math.PI * 2; updateWindUI();
+        generateIslands();
+        
+        createFleet('blue', 0, 1400, gameMode, playerShipType);
+        createFleet('red', 0, -1400, gameMode, null);
+        
+        updateScoreUI();
+
+        if(player) {
+            camera.x = player.x - (canvas.width / ZOOM_LEVEL) / 2;
+            camera.y = player.y - (canvas.height / ZOOM_LEVEL) / 2;
+        } else {
+            camera.x = 0; camera.y = 1400;
+        }
+
+        menuScreen.style.display = 'none'; overScreen.style.display = 'none'; pauseScreen.style.display = 'none'; uiLayer.style.display = 'block'; 
+        hpBar.style.width = "100%";
+        gameState = 'PLAYING'; loop();
     }
 
+    // --- GAMEPLAY CORE ---
     function generateIslands() {
         islands = [];
-        for(let i=0; i<30; i++) {
-            let x = (Math.random()-0.5)*WORLD_RADIUS*1.5;
-            let y = (Math.random()-0.5)*WORLD_RADIUS*1.5;
-            islands.push({x, y, r: 100+Math.random()*150, type: Math.random()>0.5?'sand':'rock', rotation: Math.random()*Math.PI});
+        for(let i=0; i<40; i++) {
+            let baseR = 100 + Math.random() * 200;
+            let x, y, dist;
+            do { 
+                x = (Math.random() - 0.5) * (WORLD_RADIUS * 1.5); 
+                y = (Math.random() - 0.5) * (WORLD_RADIUS * 1.5); 
+                dist = Math.hypot(x, y);
+                let nearPort = false;
+                for(let p of PORTS) { if(Math.hypot(x-p.x, y-p.y) < PORT_DOCK_RADIUS + 300) nearPort = true; }
+                if(nearPort) dist = 0; 
+            } while(dist < 1000 || dist > WORLD_RADIUS - 300); 
+            
+            let points = []; let steps = 12 + Math.floor(Math.random()*6);
+            for(let j=0; j<steps; j++) { let a = (j / steps) * Math.PI * 2; let rVar = baseR * (0.7 + Math.random() * 0.5); points.push({ x: Math.cos(a) * rVar, y: Math.sin(a) * rVar }); }
+            let details = []; for(let k=0; k<8; k++){ let a = Math.random()*Math.PI*2; let r = Math.random()*baseR*0.6; details.push({x: Math.cos(a)*r, y: Math.sin(a)*r, size: 2+Math.random()*3}); }
+            islands.push({ x, y, r: baseR * 0.9, type: Math.random() > 0.6 ? 'rock' : 'sand', rotation: Math.random() * Math.PI, points: points, details: details });
         }
     }
 
     function createShip(typeKey, x, y, team, isPlayer) {
         let stats = SHIP_TYPES[typeKey];
         return {
-            type: typeKey, stats: stats, team: team, isPlayer: isPlayer, x: x, y: y, angle: 0, speed: 0, turnVel: 0, sailsUp: false, hp: stats.hp, maxHp: stats.hp
+            id: Math.random(), type: typeKey, typeId: stats.typeId, stats: stats, team: team, isPlayer: isPlayer,
+            x: x, y: y, angle: team === 'blue' ? -Math.PI/2 : Math.PI/2, speed: 0, turnVel: 0, sailsUp: !isPlayer, 
+            hp: stats.hp, maxHp: stats.hp, reloadLeft: Math.random()*50, reloadRight: Math.random()*50,
+            burstQueueLeft: 0, burstQueueRight: 0, burstTimer: 0, aiTarget: null, aiState: 'search', goldReward: stats.reward,
+            // NOUVEAU: Gestion spécial
+            specialType: 'NONE', specialCooldown: 0, maxSpecialCooldown: 600, // 10 secondes @ 60fps
+            slowTimer: 0 // Si touché par chain shot
         };
     }
 
-    function createFleet(team, startX, startY) {
-        let s = createShip('BRIG', startX, startY, team, team === 'blue');
-        ships.push(s); if(team === 'blue') player = s;
+    function upgradePlayerShip(newTypeKey) {
+        if(!player) return;
+        let oldSpecial = player.specialType; // Garder l'équipement
+        let stats = SHIP_TYPES[newTypeKey];
+        player.type = newTypeKey; player.typeId = stats.typeId; player.stats = stats;
+        player.hp = stats.hp; player.maxHp = stats.hp; player.goldReward = stats.reward;
+        player.specialType = oldSpecial;
+        createExplosion(player.x, player.y, '#f1c40f', 2); 
     }
 
-    function startGame(shipType) {
-        ships = []; bullets = []; generateIslands();
-        createFleet('blue', 0, 1400); 
-        if(gameMode !== 'MULTI') createFleet('red', 0, -1400); // Pas d'IA en mode Multi
+    function createFleet(team, startX, startY, mode, playerShipType) {
+        let fleetConfig = [];
         
-        document.getElementById('menu-screen').style.display = 'none';
-        document.getElementById('lobby-screen').style.display = 'none';
-        document.getElementById('ui-layer').style.display = 'block';
-        gameState = 'PLAYING'; loop();
+        if (mode === 'EVOLUTION') {
+            for(let i=0; i<4; i++) fleetConfig.push('BRIG');
+        } else {
+            fleetConfig = ['GALLEON', 'BRIG', 'BRIG', 'SLOOP']; 
+        }
+
+        fleetConfig.forEach((type, index) => {
+            let spacing = 200;
+            let totalWidth = (fleetConfig.length - 1) * spacing;
+            let startXOffset = -totalWidth / 2;
+            let dx = startXOffset + (index * spacing);
+            let dy = 0; 
+            
+            let ship = createShip(type, startX + dx, startY + dy, team, false);
+            ships.push(ship);
+        });
+
+        if (team === 'blue') {
+            if (mode === 'EVOLUTION') {
+                ships[0].isPlayer = true; player = ships[0];
+            } else if (playerShipType) {
+                let found = ships.find(s => s.type === playerShipType); 
+                if(found) { found.isPlayer = true; player = found; }
+                else { 
+                    ships[0].isPlayer = true; player = ships[0]; 
+                    if(playerShipType !== 'MANOWAR') upgradePlayerShip(playerShipType);
+                }
+            }
+        }
+    }
+
+    // --- BOUTIQUE ---
+    function openShop() {
+        if(gameState !== 'PLAYING') return;
+        gameState = 'SHOP';
+        shopScreen.style.display = 'flex';
+        uiLayer.style.display = 'none';
+        updateShopUI();
+    }
+
+    function updateShopUI() {
+        shopGoldEl.innerText = playerGold;
+        
+        shopBrig.className = "evo-step"; shopGalleon.className = "evo-step"; shopManowar.className = "evo-step";
+        shopGalleon.onclick = null; shopManowar.onclick = null;
+
+        // Gestion Navires
+        if (player.type === 'BRIG') {
+            shopBrig.classList.add('active');
+            shopGalleon.classList.add('next'); shopGalleon.onclick = () => buyShip('GALLEON');
+            shopManowar.classList.add('locked');
+        } else if (player.type === 'GALLEON') {
+            shopBrig.classList.add('locked');
+            shopGalleon.classList.add('active');
+            shopManowar.classList.add('next'); shopManowar.onclick = () => buyShip('MANOWAR');
+        } else {
+            shopBrig.classList.add('locked'); shopGalleon.classList.add('locked'); shopManowar.classList.add('active');
+        }
+
+        // Amélioration Canons
+        const btnDamage = document.getElementById('btn-damage');
+        const costDmg = 200;
+        let currentBonus = Math.round((playerDamageMult - 1.0) * 100);
+        btnDamage.innerHTML = `POUDRE NOIRE (+20%) <br><span style="font-size:14px; color:#ccc">Bonus actuel : +${currentBonus}%</span><br><span style="font-weight:bold; color:${playerGold >= costDmg ? '#f1c40f' : '#888'}">${costDmg} 💰</span>`;
+        if (playerGold < costDmg) { btnDamage.classList.add('disabled'); btnDamage.onclick = null; } 
+        else { btnDamage.classList.remove('disabled'); btnDamage.onclick = buyDamage; }
+
+        // NOUVEAU: UI Special
+        updateSpecialBtn('btn-mine', 'MINE', 300);
+        updateSpecialBtn('btn-chain', 'CHAIN', 300);
+    }
+
+    function updateSpecialBtn(id, type, cost) {
+        const btn = document.getElementById(id);
+        const priceSpan = btn.querySelector('span:last-child');
+        
+        if (player.specialType === type) {
+            btn.classList.add('owned'); btn.classList.remove('disabled');
+            priceSpan.innerText = "ÉQUIPÉ"; priceSpan.style.color = "#fff";
+            btn.onclick = null;
+        } else {
+            btn.classList.remove('owned');
+            priceSpan.innerText = cost + " 💰";
+            if (playerGold >= cost || player.ownedSpecials?.includes(type)) {
+                btn.classList.remove('disabled');
+                btn.onclick = () => buySpecial(type);
+                priceSpan.style.color = "#f1c40f";
+            } else {
+                btn.classList.add('disabled');
+                btn.onclick = null;
+                priceSpan.style.color = "#888";
+            }
+        }
+    }
+
+    function closeShop() {
+        gameState = 'PLAYING';
+        shopScreen.style.display = 'none';
+        uiLayer.style.display = 'block';
+    }
+
+    function buyShip(type) {
+        let cost = (type === 'GALLEON') ? 400 : 800;
+        if (playerGold >= cost) {
+            playerGold -= cost;
+            upgradePlayerShip(type);
+            updateShopUI();
+        }
+    }
+
+    function buyDamage() {
+        const cost = 200;
+        if (playerGold >= cost) {
+            playerGold -= cost;
+            playerDamageMult += 0.2;
+            const btn = document.getElementById('btn-damage');
+            btn.style.borderColor = '#2ecc71'; 
+            setTimeout(() => { btn.style.borderColor = '#c0392b'; }, 200);
+            updateShopUI();
+        }
+    }
+
+    // NOUVEAU: Achat spécial
+    function buySpecial(type) {
+        const cost = 300;
+        // Si déjà acheté dans le passé (logique simplifiée: on paie à chaque changement pour l'instant, ou gratuit si on veut complexifier)
+        // Ici: On paie pour équiper.
+        if (playerGold >= cost) {
+            playerGold -= cost;
+            player.specialType = type;
+            // Config UI HUD
+            specialUI.style.display = 'flex';
+            if(type === 'MINE') { specialName.innerText = "Mine Marine"; specialSymbol.innerText = "💣"; }
+            if(type === 'CHAIN') { specialName.innerText = "Boulet Chaîné"; specialSymbol.innerText = "⚓"; }
+            updateShopUI();
+        }
+    }
+
+    // --- RESPAWN ---
+    function respawnPlayer() {
+        gameState = 'RESPAWNING';
+        uiLayer.style.display = 'none';
+        respawnOverlay.style.display = 'flex';
+        
+        setTimeout(() => {
+            let port = PORTS[0]; // Blue
+            player = createShip('BRIG', port.x, port.y, 'blue', true);
+            player.angle = -Math.PI/2; 
+            playerGold = 0;
+            playerDamageMult = 1.0;
+            ships.push(player);
+            
+            respawnOverlay.style.display = 'none';
+            uiLayer.style.display = 'block';
+            gameState = 'PLAYING';
+            goldValEl.innerText = "0";
+            hpBar.style.width = "100%";
+            specialUI.style.display = 'none'; // Reset special on death
+        }, 3000);
+    }
+
+    // --- AI RESPAWN ---
+    function respawnAI(team, mode) {
+        if (mode !== 'EVOLUTION') return; 
+
+        setTimeout(() => {
+            if(gameState === 'PLAYING') {
+                let port = (team === 'blue') ? PORTS[0] : PORTS[1];
+                let type = 'BRIG';
+                let r = Math.random();
+                if(r > 0.6) type = 'GALLEON'; 
+                if(r > 0.9) type = 'MANOWAR';
+
+                let newShip = createShip(type, port.x + (Math.random()-0.5)*300, port.y + (Math.random()-0.5)*100, team, false);
+                ships.push(newShip);
+            }
+        }, 5000); 
+    }
+
+    function updateWindUI() { windArrow.style.transform = `rotate(${windDirection}rad)`; }
+    function togglePause() { if(gameState === 'PLAYING') { gameState = 'PAUSED'; pauseScreen.style.display = 'flex'; uiLayer.style.display = 'none'; } else if(gameState === 'PAUSED') resumeGame(); }
+    function resumeGame() { gameState = 'PLAYING'; pauseScreen.style.display = 'none'; uiLayer.style.display = 'block'; updateWindUI(); }
+    function quitToMenu() { location.reload(); }
+    
+    function updateScoreUI() { 
+        if (gameMode === 'EVOLUTION') {
+            scoreBlueEl.innerText = scoreBlue; 
+            scoreRedEl.innerText = scoreRed;
+            scoreTargetText.innerText = "Objectif: " + WIN_SCORE;
+        } else {
+            let blues = ships.filter(s => s.team === 'blue').length;
+            let reds = ships.filter(s => s.team === 'red').length;
+            scoreBlueEl.innerText = blues;
+            scoreRedEl.innerText = reds;
+            scoreTargetText.innerText = "NAVIRES RESTANTS";
+        }
+    }
+    
+    function createExplosion(x, y, color = '#e74c3c', size = 1) { for(let i=0; i<8*size; i++) { particles.push({ x: x, y: y, vx: (Math.random()-0.5) * 4, vy: (Math.random()-0.5) * 4, life: 1.0, color: color, size: Math.random() * 6 + 2, type: 'boom' }); } }
+
+    function applySailingPhysics(ship) {
+        let angleDiff = Math.abs(normalizeAngle(ship.angle - windDirection));
+        let speedFactor = 1.0; let slowZone = false;
+        if (angleDiff > 2.5) { slowZone = true; speedFactor = 0.25; } else { speedFactor = 1.0 - (angleDiff / 3.0) * 0.3; }
+        if(ship.isPlayer) windWarning.style.display = slowZone ? 'block' : 'none';
+        
+        // NOUVEAU: Gestion du ralentissement (Chain shot)
+        if (ship.slowTimer > 0) {
+            ship.slowTimer--;
+            speedFactor *= 0.2; // 80% de ralentissement
+            if (frameCount % 10 === 0) particles.push({x: ship.x, y: ship.y, vx:0, vy:0, life:0.5, color:'#00d2d3', size:3, type:'smoke'});
+        }
+
+        if (ship.sailsUp) {
+            let targetSpeed = ship.stats.maxSpeed * speedFactor;
+            if(ship.speed < targetSpeed) ship.speed += ship.stats.accel; else ship.speed *= 0.99;
+        } else { ship.speed *= 0.995; }
+    }
+
+    function updateAI(ship) {
+        if (!ship.aiTarget || ship.aiTarget.hp <= 0 || frameCount % 60 === 0) {
+            let enemies = ships.filter(s => s.team !== ship.team);
+            if (enemies.length > 0) {
+                let bestT = null; let minD = Infinity;
+                enemies.forEach(t => {
+                    let d = Math.hypot(t.x - ship.x, t.y - ship.y);
+                    if(d < minD) { minD = d; bestT = t; }
+                });
+                ship.aiTarget = bestT;
+            }
+        }
+        if (ship.aiTarget) {
+            let t = ship.aiTarget;
+            let dx = t.x - ship.x; let dy = t.y - ship.y;
+            let dist = Math.hypot(dx, dy);
+            let angleToTarget = Math.atan2(dy, dx);
+            
+            let aheadX = ship.x + Math.cos(ship.angle) * 200;
+            let aheadY = ship.y + Math.sin(ship.angle) * 200;
+            for(let isle of islands) { if(Math.hypot(aheadX - isle.x, aheadY - isle.y) < isle.r + 100) angleToTarget += Math.PI; }
+            for(let p of PORTS) { if(Math.hypot(aheadX - p.x, aheadY - p.y) < PORT_ISLAND_RADIUS + 150) angleToTarget += Math.PI; }
+
+            let desiredAngle = angleToTarget;
+            if (dist < 700) { desiredAngle = angleToTarget + Math.PI / 2; }
+
+            let diff = normalizeAngle(desiredAngle - ship.angle);
+            if (diff > 0.1) ship.turnVel += ship.stats.turnAccel;
+            else if (diff < -0.1) ship.turnVel -= ship.stats.turnAccel;
+            
+            if (dist < 1000) {
+                let angleToEnemy = normalizeAngle(Math.atan2(dy, dx) - ship.angle);
+                if (Math.abs(angleToEnemy - (-Math.PI/2)) < 0.4 && ship.reloadLeft <= 0) initiateFire(ship, -1);
+                if (Math.abs(angleToEnemy - (Math.PI/2)) < 0.4 && ship.reloadRight <= 0) initiateFire(ship, 1);
+            }
+        } else {
+            let angleToCenter = Math.atan2(-ship.y, -ship.x);
+            let diff = normalizeAngle(angleToCenter - ship.angle);
+            if (diff > 0.1) ship.turnVel += ship.stats.turnAccel; else ship.turnVel -= ship.stats.turnAccel;
+        }
+    }
+
+    function checkVictory() {
+        if (gameMode === 'EVOLUTION') {
+            if (scoreBlue >= WIN_SCORE) gameOver(true);
+            else if (scoreRed >= WIN_SCORE) gameOver(false);
+        } else {
+            let blueSurvivors = ships.filter(s => s.team === 'blue').length;
+            let redSurvivors = ships.filter(s => s.team === 'red').length;
+            if (redSurvivors === 0 && blueSurvivors > 0) gameOver(true);
+            else if (blueSurvivors === 0 && redSurvivors > 0) gameOver(false);
+        }
+    }
+
+    function gameOver(isVictory) {
+        gameState = 'GAMEOVER';
+        uiLayer.style.display = 'none';
+        overScreen.style.display = 'flex';
+        endTitle.innerText = isVictory ? "VICTOIRE !" : "DÉFAITE...";
+        endTitle.style.color = isVictory ? "#2ecc71" : "#e74c3c";
+        endMsg.innerText = isVictory ? "La flotte ennemie est anéantie." : "Votre flotte a sombré.";
     }
 
     function update() {
         if(gameState !== 'PLAYING') return;
-        ships.forEach(s => {
-            if (s.isPlayer) {
-                if(window.keys.left) s.turnVel -= s.stats.turnAccel;
-                if(window.keys.right) s.turnVel += s.stats.turnAccel;
-                s.turnVel *= 0.98; s.angle += s.turnVel;
-                if(s.sailsUp) s.speed = Math.min(s.speed + s.stats.accel, s.stats.maxSpeed); else s.speed *= 0.99;
-                s.x += Math.cos(s.angle) * s.speed; s.y += Math.sin(s.angle) * s.speed;
-                camera.x = s.x - (canvas.width/ZOOM_LEVEL)/2; camera.y = s.y - (canvas.height/ZOOM_LEVEL)/2;
-                
-                // MULTI START: Sync
-                if(gameMode === 'MULTI') socket.emit('playerMovement', { x: s.x, y: s.y, angle: s.angle });
-                // MULTI END
+        frameCount++;
+        canOpenShop = false; 
+
+        for (let i = ships.length - 1; i >= 0; i--) {
+            let s = ships[i];
+            
+            // Port logic
+            let inPort = false;
+            PORTS.forEach(port => {
+                if (s.team === port.team && Math.hypot(s.x - port.x, s.y - port.y) < PORT_DOCK_RADIUS) {
+                    if (s.hp < s.maxHp) {
+                        s.hp += 0.2; 
+                        if(Math.random()>0.8) particles.push({x: s.x + (Math.random()-0.5)*40, y: s.y + (Math.random()-0.5)*40, vx:0, vy:-1, life:1.0, color:'#2ecc71', size:2, type:'heal'});
+                    }
+                    if(s.isPlayer) {
+                        inPort = true;
+                        if(Math.abs(s.speed) < 0.2 && !s.sailsUp) canOpenShop = true;
+                    }
+                }
+            });
+            if(s.isPlayer) {
+                repairMsg.style.display = (inPort && s.hp < s.maxHp) ? 'block' : 'none';
+                shopHint.style.display = (canOpenShop && gameMode === 'EVOLUTION') ? 'block' : 'none';
             }
-        });
+
+            if (s.isPlayer) {
+                applySailingPhysics(s);
+                if(keys.left) s.turnVel -= s.stats.turnAccel; if(keys.right) s.turnVel += s.stats.turnAccel;
+                if(s.reloadLeft > 0) s.reloadLeft--; if(s.reloadRight > 0) s.reloadRight--;
+                dialLeft.classList.toggle('ready', s.reloadLeft <= 0); dialRight.classList.toggle('ready', s.reloadRight <= 0);
+                if(keys.fireLeft && s.reloadLeft <= 0) initiateFire(s, -1);
+                if(keys.fireRight && s.reloadRight <= 0) initiateFire(s, 1);
+                
+                // NOUVEAU: Activation Spécial
+                if(s.specialCooldown > 0) s.specialCooldown--;
+                if(s.specialType !== 'NONE') {
+                    let pct = Math.min(1, s.specialCooldown / s.maxSpecialCooldown) * 100;
+                    specialFill.style.height = pct + "%";
+                    specialIcon.classList.toggle('ready', s.specialCooldown <= 0);
+                    
+                    if(keys.special && s.specialCooldown <= 0) {
+                        useSpecial(s);
+                    }
+                }
+
+                // MULTI START: Sync
+                socket.emit('playerMovement', { x: s.x, y: s.y, angle: s.angle, type: s.type });
+                // MULTI END
+
+            } else {
+                // MULTI START: Désactiver IA pour joueurs réseau
+                if (!s.netId) {
+                    updateAI(s);
+                }
+                // MULTI END
+                applySailingPhysics(s);
+                if(s.reloadLeft > 0) s.reloadLeft--; if(s.reloadRight > 0) s.reloadRight--;
+            }
+
+            if (s.burstQueueLeft > 0 || s.burstQueueRight > 0) {
+                s.burstTimer++;
+                if (s.burstTimer >= 8) { 
+                    if (s.burstQueueLeft > 0) { fireVolley(s, -1, true); s.burstQueueLeft--; }
+                    if (s.burstQueueRight > 0) { fireVolley(s, 1, true); s.burstQueueRight--; }
+                    s.burstTimer = 0;
+                }
+            }
+
+            s.turnVel *= 0.98;
+            if (s.turnVel > s.stats.turnSpeed) s.turnVel = s.stats.turnSpeed;
+            if (s.turnVel < -s.stats.turnSpeed) s.turnVel = -s.stats.turnSpeed;
+            let rudderEffect = Math.min(1, Math.abs(s.speed) / 0.2);
+            s.angle += s.turnVel * rudderEffect;
+            s.x += Math.cos(s.angle) * s.speed; s.y += Math.sin(s.angle) * s.speed;
+
+            // Collision douces & Ramming
+            for(let j=0; j<ships.length; j++){
+                let other = ships[j];
+                if(s === other) continue; 
+                let dx = s.x - other.x; let dy = s.y - other.y;
+                let dist = Math.hypot(dx, dy);
+                let minD = (30 * s.stats.size) + (30 * other.stats.size);
+                if(dist < minD) {
+                    let angle = Math.atan2(dy, dx);
+                    let push = (minD - dist) * 0.1; 
+                    s.x += Math.cos(angle) * push; s.y += Math.sin(angle) * push;
+                    s.speed *= 0.99; 
+                }
+            }
+
+            if (Math.hypot(s.x, s.y) > WORLD_RADIUS) {
+                if(s.isPlayer) boundaryWarning.style.display = 'block';
+                let angleToCenter = Math.atan2(-s.y, -s.x);
+                s.x += Math.cos(angleToCenter) * 5; s.y += Math.sin(angleToCenter) * 5; s.speed *= 0.9;
+            } else if(s.isPlayer) { boundaryWarning.style.display = 'none'; }
+
+            let shipRadius = 30 * s.stats.size;
+            for(let isle of islands) {
+                let dx = s.x - isle.x; let dy = s.y - isle.y; let dist = Math.hypot(dx, dy);
+                if (dist < isle.r + shipRadius - 15) {
+                    let angle = Math.atan2(dy, dx); 
+                    s.x = isle.x + Math.cos(angle) * (isle.r + shipRadius - 15);
+                    s.speed *= 0.5; s.turnVel *= 0.5;
+                    createExplosion(s.x + Math.cos(angle)*shipRadius, s.y + Math.sin(angle)*shipRadius, '#bdc3c7', 0.5);
+                    s.hp -= 0.5; 
+                }
+            }
+            PORTS.forEach(port => {
+                let dx = s.x - port.x; let dy = s.y - port.y; let dist = Math.hypot(dx, dy);
+                let minDist = PORT_ISLAND_RADIUS + shipRadius;
+                 if (dist < minDist) {
+                    let angle = Math.atan2(dy, dx);
+                    s.x = port.x + Math.cos(angle) * minDist;
+                    s.y = port.y + Math.sin(angle) * minDist;
+                    s.speed *= 0.8; 
+                }
+            });
+
+            // GESTION MORT
+            if(s.hp <= 0) {
+                createExplosion(s.x, s.y, '#f1c40f', 3 * s.stats.size);
+                
+                let killedTeam = s.team;
+                if (killedTeam === 'red') {
+                    scoreBlue++;
+                    if (gameMode === 'EVOLUTION') {
+                        playerGold += s.goldReward;
+                        goldValEl.innerText = playerGold;
+                        particles.push({x: s.x, y: s.y, vx:0, vy:-2, life:2.0, color:'#f1c40f', size:2, type:'text', txt:"+"+s.goldReward});
+                    }
+                } else { scoreRed++; }
+                
+                ships.splice(i, 1); 
+                updateScoreUI();
+
+                if (gameMode === 'EVOLUTION') {
+                    if (s.isPlayer) respawnPlayer();
+                    else respawnAI(killedTeam, gameMode);
+                } else {
+                    if (s.isPlayer) {
+                        let survivors = ships.filter(ship => ship.team === 'blue');
+                        if (survivors.length > 0) {
+                            let bestCandidate = survivors[0];
+                            player = bestCandidate; player.isPlayer = true; player.aiTarget = null; player.sailsUp = false; 
+                            player.specialType = 'NONE'; // Reset special on swap
+                            hpBar.style.width = (player.hp / player.maxHp * 100) + "%";
+                            transferMsg.style.display = 'block'; transferMsg.classList.add('blink');
+                            setTimeout(() => { transferMsg.style.display = 'none'; transferMsg.classList.remove('blink'); }, 2000);
+                        } else { player = { hp: 0, x: s.x, y: s.y }; hpBar.style.width = "0%"; }
+                    }
+                }
+                continue;
+            }
+            if(s.isPlayer) hpBar.style.width = Math.max(0, (s.hp/s.maxHp)*100) + "%";
+        }
+        
+        checkVictory();
+
+        // NOUVEAU: Gestion Mines
+        for (let i = mines.length - 1; i >= 0; i--) {
+            let m = mines[i];
+            m.life -= 0.0005; // Durée de vie longue
+            if (m.life <= 0) { mines.splice(i, 1); continue; }
+            
+            // Collision Mines
+            for (let s of ships) {
+                if (s.team === m.team) continue;
+                if (Math.hypot(m.x - s.x, m.y - s.y) < 30 * s.stats.size) {
+                    s.hp -= 180; // Dégâts mine
+                    createExplosion(m.x, m.y, '#e74c3c', 3);
+                    mines.splice(i, 1);
+                    break;
+                }
+            }
+        }
+
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            let b = bullets[i]; b.x += b.vx; b.y += b.vy; b.life -= 0.008; 
+            if(Math.random()>0.8) particles.push({x:b.x, y:b.y, vx:0, vy:0, life:0.4, color:'rgba(255,255,255,0.3)', size:2, type:'smoke'});
+            if (b.life <= 0) { bullets.splice(i, 1); continue; }
+            let hit = false;
+            for(let isle of islands) { if(Math.hypot(b.x - isle.x, b.y - isle.y) < isle.r * 0.9) { createExplosion(b.x, b.y, isle.type === 'sand' ? '#d4b483' : '#7f8c8d', 0.7); hit = true; break; } }
+            for(let p of PORTS) { if(Math.hypot(b.x - p.x, b.y - p.y) < PORT_ISLAND_RADIUS) { createExplosion(b.x, b.y, '#d4b483', 0.5); hit = true; break; } }
+            if(hit) { bullets.splice(i, 1); continue; }
+            for(let s of ships) {
+                if (s.team === b.team) continue;
+                if(Math.hypot(b.x - s.x, b.y - s.y) < 30 * s.stats.size) { 
+                    s.hp -= b.damage; 
+                    createExplosion(b.x, b.y, '#ecf0f1', 1); 
+                    
+                    // NOUVEAU: Effet Chain Shot
+                    if (b.isChain) {
+                        s.slowTimer = 240; // 4 secondes
+                        createExplosion(b.x, b.y, '#00d2d3', 2);
+                    }
+                    
+                    hit = true; break; 
+                } 
+            }
+            if(hit) bullets.splice(i, 1);
+        }
+
+        if(frameCount % 5 === 0) { 
+            let px = camera.x + Math.random() * canvas.width/ZOOM_LEVEL; 
+            let py = camera.y + Math.random() * canvas.height/ZOOM_LEVEL; 
+            particles.push({x: px, y: py, vx: Math.cos(windDirection)*3, vy: Math.sin(windDirection)*3, life: 1.5, color: 'rgba(255,255,255,0.3)', size: 2, type: 'wind'}); 
+        }
+        for (let i = particles.length - 1; i >= 0; i--) { let p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.01; if(p.life <= 0) particles.splice(i, 1); }
+        
+        if (player && (player.hp > 0 || player.x)) {
+            camera.x = player.x - (canvas.width / ZOOM_LEVEL) / 2;
+            camera.y = player.y - (canvas.height / ZOOM_LEVEL) / 2;
+        }
     }
 
-    function draw() {
-        ctx.fillStyle = '#012942'; ctx.fillRect(0,0, canvas.width, canvas.height);
-        ctx.save(); ctx.scale(ZOOM_LEVEL, ZOOM_LEVEL); ctx.translate(-camera.x, -camera.y);
-        islands.forEach(isle => { ctx.fillStyle = isle.type==='sand'?'#e6cca0':'#546e7a'; ctx.beginPath(); ctx.arc(isle.x, isle.y, isle.r, 0, Math.PI*2); ctx.fill(); });
-        ships.forEach(s => drawShip(ctx, s));
+    // NOUVEAU: Utilisation Spécial
+    function useSpecial(ship) {
+        ship.specialCooldown = ship.maxSpecialCooldown;
+        
+        if (ship.specialType === 'MINE') {
+            // Pose une mine derrière le bateau
+            let backX = ship.x - Math.cos(ship.angle) * 40;
+            let backY = ship.y - Math.sin(ship.angle) * 40;
+            mines.push({ x: backX, y: backY, team: ship.team, life: 1.0 });
+        }
+        else if (ship.specialType === 'CHAIN') {
+            // Tir frontal
+            let startX = ship.x + Math.cos(ship.angle) * 50;
+            let startY = ship.y + Math.sin(ship.angle) * 50;
+            bullets.push({ 
+                x: startX, y: startY, 
+                vx: Math.cos(ship.angle) * 9, vy: Math.sin(ship.angle) * 9, 
+                life: 1.0, team: ship.team, damage: 5, isChain: true 
+            });
+            createExplosion(startX, startY, '#00d2d3', 1);
+        }
+    }
+
+    function initiateFire(ship, sideDir) {
+        if (ship.stats.burst) {
+            if(sideDir === -1) { ship.burstQueueLeft = 3; ship.reloadLeft = ship.stats.reloadTime; } else { ship.burstQueueRight = 3; ship.reloadRight = ship.stats.reloadTime; }
+        } else {
+            fireVolley(ship, sideDir, false);
+            if(sideDir === -1) ship.reloadLeft = ship.stats.reloadTime;
+            else ship.reloadRight = ship.stats.reloadTime;
+        }
+    }
+
+    function fireVolley(ship, sideDir, isBurstShot) {
+        const cannonSpeed = 6; 
+        const forwardTilt = 0.26; 
+        const baseAngle = ship.angle + (sideDir * (Math.PI / 2 - forwardTilt));
+        const numCannons = ship.stats.cannons;
+        let startOffset = -20 * (numCannons-1) / 2;
+        let spread = isBurstShot ? 0.2 : 0.1;
+        let dmg = ship.stats.damage;
+        if (ship.isPlayer) dmg *= playerDamageMult;
+
+        for(let i=0; i<numCannons; i++) {
+            let offset = startOffset + (i * 20);
+            let startX = ship.x + Math.cos(ship.angle) * offset + Math.cos(baseAngle) * (20 * ship.stats.size); 
+            let startY = ship.y + Math.sin(ship.angle) * offset + Math.sin(baseAngle) * (20 * ship.stats.size); 
+            let angle = baseAngle + (Math.random() - 0.5) * spread;
+            bullets.push({ x: startX, y: startY, vx: Math.cos(angle) * cannonSpeed, vy: Math.sin(angle) * cannonSpeed, life: 1.0, team: ship.team, damage: dmg });
+            createExplosion(startX, startY, 'rgba(220,220,220,0.6)', 1.5);
+        }
+    }
+
+    function drawMinimap() {
+        if(!player) return;
+        const size = 180; const scale = 0.015 * ZOOM_LEVEL; 
+        const margin = 20; const x = canvas.width - size - margin; const y = canvas.height - size - margin;
+        
+        ctx.fillStyle = '#d2b48c'; ctx.fillRect(x, y, size, size);
+        ctx.strokeStyle = '#8b4513'; ctx.lineWidth = 4; ctx.strokeRect(x, y, size, size);
+        ctx.save(); ctx.beginPath(); ctx.rect(x, y, size, size); ctx.clip(); const centerX = x + size/2; const centerY = y + size/2;
+        
+        islands.forEach(isle => { 
+            let dx = (isle.x - player.x) * scale; let dy = (isle.y - player.y) * scale; 
+            if (Math.abs(dx) < size/2 + isle.r*scale && Math.abs(dy) < size/2 + isle.r*scale) { 
+                ctx.fillStyle = '#8b4513'; ctx.beginPath(); ctx.arc(centerX + dx, centerY + dy, isle.r * scale * 0.8, 0, Math.PI*2); ctx.fill(); 
+            } 
+        });
+
+        PORTS.forEach(p => {
+            let dx = (p.x - player.x) * scale; let dy = (p.y - player.y) * scale;
+            if (Math.abs(dx) < size/2 && Math.abs(dy) < size/2) {
+                ctx.fillStyle = p.team === 'blue' ? 'rgba(52, 152, 219, 0.5)' : 'rgba(231, 76, 60, 0.5)';
+                ctx.beginPath(); ctx.arc(centerX+dx, centerY+dy, PORT_DOCK_RADIUS*scale, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#8b4513';
+                ctx.beginPath(); ctx.arc(centerX+dx, centerY+dy, PORT_ISLAND_RADIUS*scale, 0, Math.PI*2); ctx.fill();
+            }
+        });
+        
+        ships.forEach(s => {
+            let dx = (s.x - player.x) * scale; let dy = (s.y - player.y) * scale;
+            if (Math.abs(dx) < size/2 && Math.abs(dy) < size/2) {
+                ctx.fillStyle = s.team === 'blue' ? '#3498db' : '#e74c3c';
+                if(s.isPlayer) ctx.fillStyle = '#fff';
+                ctx.beginPath(); ctx.arc(centerX + dx, centerY + dy, 3, 0, Math.PI*2); ctx.fill();
+            }
+        });
+        
+        ctx.restore();
+        ctx.fillStyle = '#5d4037'; ctx.font = "bold 14px Garamond"; ctx.fillText("CARTE", x + 10, y + 20);
+    }
+
+    function drawPolyLayer(ctx, points, scale, color) { ctx.beginPath(); ctx.moveTo(points[0].x * scale, points[0].y * scale); for(let i=1; i<points.length; i++) ctx.lineTo(points[i].x * scale, points[i].y * scale); ctx.closePath(); ctx.fillStyle = color; ctx.fill(); }
+    function drawIslands(ctx) { islands.forEach(isle => { ctx.save(); ctx.translate(isle.x, isle.y); ctx.rotate(isle.rotation); drawPolyLayer(ctx, isle.points, 1.0, isle.type === 'sand' ? '#e6cca0' : '#546e7a'); drawPolyLayer(ctx, isle.points, 0.75, isle.type === 'sand' ? '#2ecc71' : '#78909c'); ctx.fillStyle = isle.type === 'sand' ? '#27ae60' : '#37474f'; isle.details.forEach(d => { ctx.beginPath(); ctx.arc(d.x, d.y, d.size, 0, Math.PI*2); ctx.fill(); }); ctx.restore(); }); }
+    
+    function drawShip(ctx, ship) {
+        let x = ship.x; let y = ship.y; let angle = ship.angle;
+        let size = ship.stats.size;
+        let type = ship.type;
+        ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.scale(size, size);
+        
+        ctx.fillStyle = ship.stats.hp > 50 ? '#5d4037' : '#3e2723'; 
+        if(ship.team === 'red') ctx.fillStyle = '#3e1a1a'; 
+        
+        ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2;
+        ctx.beginPath(); 
+        if(type === 'GALLEON' || type === 'MANOWAR') {
+            let w = (type === 'MANOWAR') ? 70 : 60;
+            ctx.moveTo(-50, -18); ctx.bezierCurveTo(-30, -28, 30, -28, w, -5); ctx.lineTo(w+5, 0); ctx.lineTo(w, 5); ctx.bezierCurveTo(30, 28, -30, 28, -50, 18);
+            ctx.rect(-50, -15, 15, 30); 
+        } else if (type === 'SLOOP') {
+            ctx.ellipse(0, 0, 30, 12, 0, 0, Math.PI*2);
+        } else {
+            ctx.moveTo(-40, -12); ctx.bezierCurveTo(-20, -18, 20, -18, 50, -2); ctx.lineTo(55, 0); ctx.lineTo(50, 2); ctx.bezierCurveTo(20, 18, -20, 18, -40, 12);
+        }
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        
+        ctx.fillStyle = '#8d6e63'; ctx.beginPath(); ctx.ellipse(0, 0, (type==='SLOOP'?20:35), (type==='SLOOP'?8:10), 0, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(type==='SLOOP'?20:45, 0); ctx.lineTo(type==='SLOOP'?40:75, 0); ctx.stroke();
+        
+        ctx.fillStyle = '#000'; 
+        let numC = ship.stats.cannons; let startOffset = -20 * (numC-1) / 2;
+        for(let i=0; i<numC; i++) { let p = startOffset + (i*20); ctx.fillRect(p, -14, 4, 4); ctx.fillRect(p, 10, 4, 4); }
+        
+        let masts = (type==='SLOOP') ? [0] : (type==='BRIG') ? [-15, 15] : (type==='GALLEON') ? [-30, 0, 30] : [-40, -10, 20, 50];
+        let sailColor = ship.team === 'blue' ? '#ecf0f1' : '#c0392b'; 
+        
+        masts.forEach((mX, index) => {
+            ctx.fillStyle = '#3e2723'; ctx.beginPath(); ctx.arc(mX, 0, 4, 0, Math.PI*2); ctx.fill();
+            let sailWidth = (type==='SLOOP') ? 50 : (type==='BRIG') ? 60 : 70;
+            ctx.save(); ctx.translate(mX, 0); ctx.strokeStyle = '#3e2723'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-3, -sailWidth/2); ctx.lineTo(-3, sailWidth/2); ctx.stroke();
+            if (ship.sailsUp) {
+                ctx.fillStyle = sailColor; ctx.beginPath(); ctx.moveTo(-3, -sailWidth/2); ctx.lineTo(-15, -sailWidth/2 - 2); ctx.lineTo(-15, sailWidth/2 + 2); ctx.lineTo(-3, sailWidth/2); ctx.fill();
+            } else { ctx.fillStyle = '#bdc3c7'; ctx.fillRect(-6, -sailWidth/2, 4, sailWidth); }
+            ctx.restore();
+        });
+
+        if (ship.isPlayer) { ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-10, -10); ctx.lineTo(10, -10); ctx.fill(); }
+        
+        // NOUVEAU: Effet Chain (Stun)
+        if (ship.slowTimer > 0) {
+            ctx.strokeStyle = '#00d2d3'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI*2); ctx.stroke();
+        }
+
         ctx.restore();
     }
 
-    function loop() { update(); draw(); requestAnimationFrame(loop); }
+    function draw() {
+        ctx.fillStyle = '#012942'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.save();
+        ctx.scale(ZOOM_LEVEL, ZOOM_LEVEL);
+        ctx.translate(-camera.x, -camera.y);
+        
+        ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 2; const gridSize = 150; let startX = Math.floor(camera.x / gridSize) * gridSize; let startY = Math.floor(camera.y / gridSize) * gridSize;
+        let viewW = canvas.width / ZOOM_LEVEL; let viewH = canvas.height / ZOOM_LEVEL;
+        for(let x = startX; x < camera.x + viewW + gridSize; x += gridSize) { for(let y = startY; y < camera.y + viewH + gridSize; y += 50) { if((x+y)%200 === 0) { ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI, true); ctx.stroke(); }}}
+        ctx.strokeStyle = 'rgba(231, 76, 60, 0.3)'; ctx.lineWidth = 30; ctx.beginPath(); ctx.arc(0,0, WORLD_RADIUS, 0, Math.PI*2); ctx.stroke();
+        
+        PORTS.forEach(p => {
+            ctx.save(); ctx.translate(p.x, p.y);
+            ctx.beginPath(); ctx.arc(0, 0, PORT_DOCK_RADIUS, 0, Math.PI*2); ctx.fillStyle = p.team === 'blue' ? 'rgba(52, 152, 219, 0.1)' : 'rgba(231, 76, 60, 0.1)'; ctx.fill();
+            ctx.strokeStyle = p.team === 'blue' ? 'rgba(52, 152, 219, 0.3)' : 'rgba(231, 76, 60, 0.3)'; ctx.lineWidth = 2; ctx.setLineDash([10, 10]); ctx.stroke(); ctx.setLineDash([]);
+            ctx.beginPath(); ctx.arc(0, 0, PORT_ISLAND_RADIUS, 0, Math.PI*2); ctx.fillStyle = '#e6cca0'; ctx.fill(); ctx.strokeStyle = '#d4b483'; ctx.lineWidth = 4; ctx.stroke();
+            ctx.fillStyle = '#2ecc71'; ctx.beginPath(); ctx.arc(0, 0, PORT_ISLAND_RADIUS*0.4, 0, Math.PI*2); ctx.fill();
+            ctx.rotate(p.dockSide); ctx.fillStyle = '#8b5a2b'; ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 2;
+            let dockWidth = 40; let dockLength = PORT_DOCK_RADIUS - PORT_ISLAND_RADIUS + 20;
+            ctx.fillRect(PORT_ISLAND_RADIUS - 10, -dockWidth/2, dockLength, dockWidth); ctx.strokeRect(PORT_ISLAND_RADIUS - 10, -dockWidth/2, dockLength, dockWidth);
+            ctx.beginPath(); for(let i=0; i<dockLength; i+=10) { ctx.moveTo(PORT_ISLAND_RADIUS - 10 + i, -dockWidth/2); ctx.lineTo(PORT_ISLAND_RADIUS - 10 + i, dockWidth/2); } ctx.stroke();
+            ctx.restore();
+        });
 
-    window.keys = keys;
-    window.addEventListener('keydown', e => { 
-        if(e.code === 'KeyA') keys.left = true; if(e.code === 'KeyD') keys.right = true; 
-        if(e.code === 'KeyW') if(player) player.sailsUp = !player.sailsUp;
-    });
-    window.addEventListener('keyup', e => { if(e.code === 'KeyA') keys.left = false; if(e.code === 'KeyD') keys.right = false; });
+        // NOUVEAU: Draw Mines
+        mines.forEach(m => {
+            ctx.fillStyle = '#2c3e50'; ctx.beginPath(); ctx.arc(m.x, m.y, 8, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#c0392b'; ctx.beginPath(); ctx.arc(m.x, m.y, 3, 0, Math.PI*2); ctx.fill();
+            // Picots
+            for(let i=0; i<4; i++) {
+                ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(i * Math.PI/2 + frameCount*0.05);
+                ctx.fillStyle = '#2c3e50'; ctx.fillRect(-12, -2, 24, 4);
+                ctx.restore();
+            }
+        });
+
+        particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; 
+            if(p.type === 'wind') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(windDirection); ctx.fillRect(-20, -1, 40, 2); ctx.restore(); } 
+            else if(p.type === 'heal') { ctx.fillText("+", p.x, p.y); }
+            else if(p.type === 'text') { ctx.font = "bold 24px Arial"; ctx.fillText(p.txt, p.x, p.y); }
+            else { ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill(); } 
+        }); ctx.globalAlpha = 1.0;
+        
+        drawIslands(ctx);
+        ships.forEach(s => { 
+            if (s.hp < s.maxHp) { ctx.fillStyle = 'red'; ctx.fillRect(s.x-20, s.y-60, 40, 4); ctx.fillStyle = s.team === 'blue' ? '#3498db' : '#e74c3c'; ctx.fillRect(s.x-20, s.y-60, (s.hp/s.maxHp)*40, 4); }
+            drawShip(ctx, s); 
+        });
+        
+        bullets.forEach(b => { 
+            ctx.fillStyle = b.isChain ? '#00d2d3' : '#000'; // Bleu pour chain shot
+            ctx.beginPath(); ctx.arc(b.x, b.y, b.damage/2, 0, Math.PI*2); ctx.fill(); 
+        });
+        
+        ctx.restore();
+        if(gameState === 'PLAYING' || gameState === 'PAUSED' || gameState === 'SHOP') drawMinimap();
+        requestAnimationFrame(loop);
+    }
+
+    function loop() { update(); draw(); }
+    window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+    draw();
 </script>
 </body>
 </html>
