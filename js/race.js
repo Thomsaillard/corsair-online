@@ -73,12 +73,12 @@ class RaceGame {
     }
     this.player = this.boats[0]; this.cam.x = this.player.x; this.cam.y = this.player.y;
     this.touch = [{ label: '◀', code: 'ArrowLeft', pos: 'L' }, { label: '▶', code: 'ArrowRight', pos: 'L' },
-      { label: 'Border', code: 'ArrowUp', pos: 'R' }, { label: 'Choquer', code: 'ArrowDown', pos: 'R' }, { label: 'Auto', code: 'KeyT', pos: 'R' }];
+      { label: 'Border', code: 'ArrowUp', pos: 'R' }, { label: 'Choquer', code: 'ArrowDown', pos: 'R' }, { label: 'Auto', code: 'KeyT', pos: 'R' }, { label: 'Vue', code: 'KeyC', pos: 'T' }];
     if (mode === 'dinghy') this.touch.push({ label: 'Rappel', code: 'Space', pos: 'R', big: true });
     else this.touch.push({ label: 'Foils', code: 'KeyF', pos: 'R' }, { label: 'J3', code: 'Digit1', pos: 'T' }, { label: 'J2', code: 'Digit2', pos: 'T' }, { label: 'Code 0', code: 'Digit3', pos: 'T' }, { label: 'Spi', code: 'Digit4', pos: 'T' });
     this.help = mode === 'dinghy'
-      ? '← → barre · ↑ border · ↓ choquer · ESPACE rappel (maintenir) · T réglage auto · Échap pause'
-      : '← → barre · ↑ border · ↓ choquer · 1-4 voile d’avant · F foils · T réglage auto · Échap pause';
+      ? '← → barre · ↑ border · ↓ choquer · ESPACE rappel (maintenir) · T réglage auto · C vue · souris : regarder autour'
+      : '← → barre · ↑ border · ↓ choquer · 1-4 voile d’avant · F foils · T réglage auto · C vue · souris : regarder autour';
     toast(mode === 'dinghy' ? 'Procédure de départ : 30 secondes' : 'Départ dans 20 secondes', 3);
   }
 
@@ -239,6 +239,13 @@ class RaceGame {
   /* ---------- rendu ---------- */
   draw(c) {
     const C = this.C, p = this.player, cam = this.cam, t = this.clock;
+    if (R3.active()) {
+      const nt = this.targets[Math.min(p.leg, this.targets.length - 1)];
+      c.clearRect(0, 0, W, H); R3.render(this);
+      for (const b of this.boats) if (!b.isPlayer) R3.marker(c, b.x, b.y, C.len * 1.7, b.color, b.name, false);
+      if (p.fin === null) R3.marker(c, nt.x, nt.y, C.len * 0.9, '#ffd23f', nt.label + ' · ' + (d => this.mode === 'dinghy' ? Math.round(d / 3) + ' m' : (d / 600).toFixed(1) + ' nm')(Math.hypot(nt.x - p.x, nt.y - p.y)));
+      this.hud(c, nt); return;
+    }
     drawWater(c, cam, t, this.wind, this.mode === 'dinghy' ? ['#1c8fb5', '#136f95'] : ['#0f5f8f', '#0a3f6b']);
     camBegin(c, cam);
     for (const is of this.islands) drawIsland(c, is);

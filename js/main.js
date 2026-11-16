@@ -37,6 +37,7 @@ function buildTouch() {
 
 window.addEventListener('keydown', e => {
   if (e.code === 'Escape' || e.code === 'KeyP') setPause(!paused);
+  if (e.code === 'KeyC' && game && !e.repeat) R3.cycle();
   if (e.code === 'KeyM') { Sfx.toggleMute(); $('mute').textContent = Sfx.muted ? '🔇' : '🔊'; }
   if (e.code === 'KeyB' && game && game.shopOpen && !e.repeat) { game.closeShop(); delete pressed.KeyB; }
 });
@@ -50,7 +51,9 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && gam
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  $('gl').style.display = game && R3.active() ? 'block' : 'none';
   if (game) {
+    if (pressed.KeyC && IS_TOUCH) R3.cycle();
     if (!paused) game.update(dt);
     game.draw(ctx); drawToasts(ctx, paused ? 0 : dt);
   } else {
@@ -59,4 +62,4 @@ function frame(now) {
   for (const k in pressed) delete pressed[k];
   requestAnimationFrame(frame);
 }
-refreshMenu(); requestAnimationFrame(frame);
+R3.init(); refreshMenu(); requestAnimationFrame(frame);

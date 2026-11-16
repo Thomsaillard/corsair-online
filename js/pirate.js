@@ -31,8 +31,8 @@ class PirateGame {
     this.player = this.mkShip('SLOOP', 'player', 0, PORT_R + 60, -Math.PI / 2); this.player.sail = 0.5;
     this.ships.push(this.player);
     this.touch = [{ label: '◀', code: 'ArrowLeft', pos: 'L' }, { label: '▶', code: 'ArrowRight', pos: 'L' }, { label: 'Voiles +', code: 'ArrowUp', pos: 'R' }, { label: 'Voiles −', code: 'ArrowDown', pos: 'R' },
-      { label: '🔥 Bâbord', code: 'KeyQ', pos: 'R', big: true }, { label: 'Tribord 🔥', code: 'KeyE', pos: 'R', big: true }, { label: 'Baril', code: 'Space', pos: 'T' }, { label: 'Port', code: 'KeyB', pos: 'T' }];
-    this.help = '← → barre · ↑ ↓ voilure · A / E bordées bâbord / tribord (Q / E en QWERTY) · ESPACE baril · B chantier naval (au port)';
+      { label: '🔥 Bâbord', code: 'KeyQ', pos: 'R', big: true }, { label: 'Tribord 🔥', code: 'KeyE', pos: 'R', big: true }, { label: 'Baril', code: 'Space', pos: 'T' }, { label: 'Port', code: 'KeyB', pos: 'T' }, { label: 'Vue', code: 'KeyC', pos: 'T' }];
+    this.help = '← → barre · ↑ ↓ voilure · A / E bordées bâbord / tribord (Q / E en QWERTY) · ESPACE baril · B chantier naval (au port) · C vue · souris : regarder autour';
     toast('Défendez votre port, pillez, améliorez !', 3.5, '#ffe066');
   }
   mkShip(type, team, x, y, hdg, lvl = 0) {
@@ -227,6 +227,16 @@ class PirateGame {
   /* ---------- rendu ---------- */
   draw(c) {
     const cam = this.cam, t = this.clock, p = this.player;
+    if (R3.active()) {
+      c.clearRect(0, 0, W, H); R3.render(this);
+      for (const s of this.ships) if (s !== p && s.sink <= 0) {
+        const col = s.team === 'merchant' ? '#f1c40f' : '#ff5a4a', q = R3.marker(c, s.x, s.y, s.st.len * 1.25, col, Math.round(Math.hypot(s.x - p.x, s.y - p.y) / 10) + ' m');
+        if (q) { c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(q.sx - 26, q.sy - 44, 52, 6); c.fillStyle = col; c.fillRect(q.sx - 26, q.sy - 44, 52 * clamp(s.hp / s.maxHp, 0, 1), 6); }
+      }
+      if (!this.nearPort) R3.marker(c, 0, 0, 90, '#7dffa0', 'Port');
+      if (this.shake > 0) { c.fillStyle = `rgba(255,60,40,${this.shake * 0.8})`; c.fillRect(0, 0, W, H); }
+      this.hud(c); return;
+    }
     const sx = this.shake > 0 ? rand(-6, 6) * this.shake * 4 : 0, sy = this.shake > 0 ? rand(-6, 6) * this.shake * 4 : 0; cam.x += sx; cam.y += sy;
     drawWater(c, cam, t, this.wind, ['#12708f', '#0b4a6e']);
     camBegin(c, cam);
@@ -269,6 +279,8 @@ class PirateGame {
     const cy = H - (IS_TOUCH ? 170 : 62);
     [[-1, p.rl, 'BÂBORD'], [1, p.rr, 'TRIBORD']].forEach(([s, r, n]) => {
       const cx = W / 2 + s * 78, k = clamp(1 - r / st.reload, 0, 1), rdy = r <= 0;
+      const aim = rdy && this.ships.some(e => e !== p && e.sink <= 0 && Math.hypot(e.x - p.x, e.y - p.y) < SHOT_RANGE * 0.95 && Math.abs(wrap(Math.atan2(e.y - p.y, e.x - p.x) - p.hdg) - s * Math.PI / 2) < 0.24);
+      if (aim) { c.fillStyle = 'rgba(125,255,160,.9)'; c.beginPath(); c.arc(cx, cy, 36, 0, TAU); c.fill(); txt(c, 'FEU !', cx, cy - 42, 13, '#7dffa0', 'center', '800'); }
       c.fillStyle = 'rgba(6,18,32,.72)'; c.beginPath(); c.arc(cx, cy, 30, 0, TAU); c.fill(); c.strokeStyle = rdy ? '#ffd23f' : 'rgba(255,255,255,.25)'; c.lineWidth = 4; c.beginPath(); c.arc(cx, cy, 30, -Math.PI / 2, -Math.PI / 2 + TAU * k); c.stroke();
       txt(c, IS_TOUCH ? '🔥' : s < 0 ? 'A' : 'E', cx, cy + 3, 18, rdy ? '#fff' : '#777', 'center', '800'); txt(c, n, cx, cy + 16, 8, rdy ? '#ffd23f' : '#777', 'center');
     });
