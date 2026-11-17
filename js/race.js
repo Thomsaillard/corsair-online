@@ -326,14 +326,14 @@ class RaceGame {
       rk.forEach((b, i) => { const yy = ry + 21 + i * 19; c.fillStyle = b.color; c.beginPath(); c.arc(W - rw, yy - 4, 4, 0, TAU); c.fill(); txt(c, (i + 1) + '. ' + b.name, W - rw + 9, yy, 12, b.isPlayer ? '#ffd23f' : '#fff', 'left', b.isPlayer ? '800' : '500'); if (b.fin !== null && !small) txt(c, fmtTime(b.fin), W - 20, yy, 10, '#9fc4dd', 'right'); });
     }
     this.minimap(c);
-    if (!IS_TOUCH && this.clock < 25) txt(c, this.help, W / 2, H - 14, 12, 'rgba(255,255,255,.7)', 'center', '500');
+    if (!touchUI() && this.clock < 25) txt(c, this.help, W / 2, H - 14, 12, 'rgba(255,255,255,.7)', 'center', '500');
   }
 
   minimap(c) {
-    if (IS_TOUCH && W < 900) return;
+    if (touchUI() && W < 900) return;
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; for (const t of this.targets) { x0 = Math.min(x0, t.x); x1 = Math.max(x1, t.x); y0 = Math.min(y0, t.y); y1 = Math.max(y1, t.y); }
     const pad = this.mode === 'dinghy' ? 500 : 1200; x0 -= pad; x1 += pad; y0 -= pad; y1 += pad;
-    const mh = Math.min(190, H * 0.28), s = mh / (y1 - y0), mw = Math.max(110, (x1 - x0) * s), mx = IS_TOUCH ? W / 2 - mw / 2 : W - mw - 12, my = H - mh - (IS_TOUCH ? 12 : 30);
+    const mh = Math.min(190, H * 0.28), s = mh / (y1 - y0), mw = Math.max(110, (x1 - x0) * s), mx = touchUI() ? W / 2 - mw / 2 : W - mw - 12, my = H - mh - (touchUI() ? 12 : 30);
     const ox = mx + (mw - (x1 - x0) * s) / 2;
     panel(c, mx, my, mw, mh); c.save(); c.beginPath(); c.rect(mx, my, mw, mh); c.clip();
     const X = x => ox + (x - x0) * s, Y = y => my + (y - y0) * s;

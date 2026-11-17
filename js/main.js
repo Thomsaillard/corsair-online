@@ -15,6 +15,9 @@ function startGame(mode) {
   Sfx.init(); toasts.length = 0; lastMode = mode; paused = false;
   game = mode === 'pirate' ? new PirateGame() : new RaceGame(mode, diff);
   ['menu', 'end', 'pause', 'shop'].forEach(i => show(i, false)); buildTouch();
+  // le bouton cliqué garderait le focus : Espace / Entrée le « recliqueraient » et relanceraient la partie
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  try { cv.focus({ preventScroll: true }); } catch (e) {}
 }
 function toMenu() { game = null; paused = false;['end', 'pause', 'shop'].forEach(i => show(i, false)); show('menu', true); $('touch').innerHTML = ''; refreshMenu(); Sfx.wind(0.15); }
 function showEnd(title, html) { $('end-title').textContent = title; $('end-body').innerHTML = html; show('end', true); $('touch').innerHTML = ''; }
@@ -36,10 +39,10 @@ function buildTouch() {
 }
 
 window.addEventListener('keydown', e => {
-  if (e.code === 'Escape' || e.code === 'KeyP') setPause(!paused);
-  if (e.code === 'KeyC' && game && !e.repeat) R3.cycle();
-  if (e.code === 'KeyM') { Sfx.toggleMute(); $('mute').textContent = Sfx.muted ? '🔇' : '🔊'; }
-  if (e.code === 'KeyB' && game && game.shopOpen && !e.repeat) { game.closeShop(); delete pressed.KeyB; }
+  const k = e.gameKey || keyOf(e);
+  if (k === 'Escape' || k === 'KeyP') setPause(!paused);
+  if (k === 'KeyM') { Sfx.toggleMute(); $('mute').textContent = Sfx.muted ? '🔇' : '🔊'; }
+  if (k === 'KeyB' && game && game.shopOpen && !e.repeat) { game.closeShop(); delete pressed.KeyB; }
 });
 document.querySelectorAll('.card').forEach(c => c.addEventListener('click', () => startGame(c.dataset.mode)));
 document.querySelectorAll('.diff button').forEach(b => b.addEventListener('click', () => { diff = +b.dataset.d; Store.set('diff', diff); refreshMenu(); }));
@@ -53,7 +56,7 @@ function frame(now) {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   $('gl').style.display = game && R3.active() ? 'block' : 'none';
   if (game) {
-    if (pressed.KeyC && IS_TOUCH) R3.cycle();
+    if (pressed.KeyC) R3.cycle();
     if (!paused) game.update(dt);
     game.draw(ctx); drawToasts(ctx, paused ? 0 : dt);
   } else {

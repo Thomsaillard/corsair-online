@@ -276,24 +276,24 @@ class PirateGame {
     txt(c, 'VOILURE', x0 + 14, y + 90, 11, '#9fc4dd'); for (let i = 0; i < 2; i++) { c.fillStyle = p.sail > i * 0.5 ? '#f4efe2' : 'rgba(255,255,255,.14)'; c.fillRect(x0 + 74 + i * 30, y + 80, 26, 11); }
     const up = p.twaD < p.st.up; txt(c, up ? '⚠ FACE AU VENT' : this.barrelN ? '🛢 × ' + this.barrelN : '', x0 + 216, y + 90, 11, up ? '#ff8a7a' : '#fff', 'right', '700');
     // canons
-    const cy = H - (IS_TOUCH ? 170 : 62);
+    const cy = H - (touchUI() ? 170 : 62);
     [[-1, p.rl, 'BÂBORD'], [1, p.rr, 'TRIBORD']].forEach(([s, r, n]) => {
       const cx = W / 2 + s * 78, k = clamp(1 - r / st.reload, 0, 1), rdy = r <= 0;
       const aim = rdy && this.ships.some(e => e !== p && e.sink <= 0 && Math.hypot(e.x - p.x, e.y - p.y) < SHOT_RANGE * 0.95 && Math.abs(wrap(Math.atan2(e.y - p.y, e.x - p.x) - p.hdg) - s * Math.PI / 2) < 0.24);
       if (aim) { c.fillStyle = 'rgba(125,255,160,.9)'; c.beginPath(); c.arc(cx, cy, 36, 0, TAU); c.fill(); txt(c, 'FEU !', cx, cy - 42, 13, '#7dffa0', 'center', '800'); }
       c.fillStyle = 'rgba(6,18,32,.72)'; c.beginPath(); c.arc(cx, cy, 30, 0, TAU); c.fill(); c.strokeStyle = rdy ? '#ffd23f' : 'rgba(255,255,255,.25)'; c.lineWidth = 4; c.beginPath(); c.arc(cx, cy, 30, -Math.PI / 2, -Math.PI / 2 + TAU * k); c.stroke();
-      txt(c, IS_TOUCH ? '🔥' : s < 0 ? 'A' : 'E', cx, cy + 3, 18, rdy ? '#fff' : '#777', 'center', '800'); txt(c, n, cx, cy + 16, 8, rdy ? '#ffd23f' : '#777', 'center');
+      txt(c, touchUI() ? '🔥' : s < 0 ? 'A' : 'E', cx, cy + 3, 18, rdy ? '#fff' : '#777', 'center', '800'); txt(c, n, cx, cy + 16, 8, rdy ? '#ffd23f' : '#777', 'center');
     });
-    if (this.nearPort && p.sink <= 0) { panel(c, W / 2 - 150, cy - 82, 300, 34); txt(c, IS_TOUCH ? '⚓ Au port — touchez « Port »' : '⚓ Au port — B : chantier naval', W / 2, cy - 60, 14, '#7dffa0', 'center', '700'); }
+    if (this.nearPort && p.sink <= 0) { panel(c, W / 2 - 150, cy - 82, 300, 34); txt(c, touchUI() ? '⚓ Au port — touchez « Port »' : '⚓ Au port — B : chantier naval', W / 2, cy - 60, 14, '#7dffa0', 'center', '700'); }
     const r = small ? 30 : 40; drawCompass(c, W - r - 22, r + 22, r, p.wdir, this.wind.at(p.x, p.y).spd, p.hdg);
     // minicarte
-    if (!(IS_TOUCH && W < 900)) {
-      const m = Math.min(170, H * 0.26), mx = W - m - 12, my = IS_TOUCH ? r * 2 + 70 : H - m - 30, s = m / (WORLD_R * 2.1), X = x => mx + m / 2 + x * s, Y = y => my + m / 2 + y * s;
+    if (!(touchUI() && W < 900)) {
+      const m = Math.min(170, H * 0.26), mx = W - m - 12, my = touchUI() ? r * 2 + 70 : H - m - 30, s = m / (WORLD_R * 2.1), X = x => mx + m / 2 + x * s, Y = y => my + m / 2 + y * s;
       panel(c, mx, my, m, m, m / 2); c.fillStyle = 'rgba(120,200,130,.65)'; for (const is of this.islands) { c.beginPath(); c.arc(X(is.x), Y(is.y), Math.max(1.5, is.r * s), 0, TAU); c.fill(); }
       c.fillStyle = '#7dffa0'; c.fillRect(X(0) - 3, Y(0) - 3, 6, 6); c.fillStyle = '#ffd23f'; for (const l of this.loot) c.fillRect(X(l.x) - 1, Y(l.y) - 1, 2, 2);
       for (const sh of this.ships) { if (sh.sink > 0) continue; c.fillStyle = sh === p ? '#fff' : sh.team === 'merchant' ? '#f1c40f' : '#ff5a4a'; c.beginPath(); c.arc(X(sh.x), Y(sh.y), sh === p ? 3.5 : 2.5, 0, TAU); c.fill(); }
     }
-    if (!IS_TOUCH && this.clock < 30) txt(c, this.help, W / 2, H - 12, 12, 'rgba(255,255,255,.7)', 'center', '500');
+    if (!touchUI() && this.clock < 30) txt(c, this.help, W / 2, H - 12, 12, 'rgba(255,255,255,.7)', 'center', '500');
   }
 }
 

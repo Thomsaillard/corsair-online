@@ -32,12 +32,38 @@ window.addEventListener('resize', resize); resize();
 
 /* ---------- Entrées ---------- */
 const keys = {}, pressed = {};
+let usingKbd = false; // clavier physique détecté (iPad avec clavier, etc.)
+// Safari iPad ne remplit pas toujours e.code (et nomme les flèches « UIKeyInput… ») : on normalise.
+const KEY_ALIAS = {
+  ArrowLeft: 'ArrowLeft', Left: 'ArrowLeft', UIKeyInputLeftArrow: 'ArrowLeft',
+  ArrowRight: 'ArrowRight', Right: 'ArrowRight', UIKeyInputRightArrow: 'ArrowRight',
+  ArrowUp: 'ArrowUp', Up: 'ArrowUp', UIKeyInputUpArrow: 'ArrowUp',
+  ArrowDown: 'ArrowDown', Down: 'ArrowDown', UIKeyInputDownArrow: 'ArrowDown',
+  ' ': 'Space', Spacebar: 'Space', Escape: 'Escape', Esc: 'Escape', UIKeyInputEscape: 'Escape'
+};
+const KEYCODES = { 27: 'Escape', 32: 'Space', 37: 'ArrowLeft', 38: 'ArrowUp', 39: 'ArrowRight', 40: 'ArrowDown' };
+function keyOf(e) {
+  if (KEY_ALIAS[e.key]) return KEY_ALIAS[e.key];
+  if (e.code && e.code !== 'Unidentified') return e.code;
+  const kc = e.keyCode || e.which || 0;
+  if (KEYCODES[kc]) return KEYCODES[kc];
+  if (kc >= 65 && kc <= 90) return 'Key' + String.fromCharCode(kc);
+  if (kc >= 48 && kc <= 57) return 'Digit' + (kc - 48);
+  if (e.key && e.key.length === 1) { const k = e.key.toUpperCase(); if (k >= 'A' && k <= 'Z') return 'Key' + k; if (k >= '0' && k <= '9') return 'Digit' + k; }
+  return e.key || '';
+}
 window.addEventListener('keydown', e => {
-  if (!keys[e.code]) pressed[e.code] = true;
-  keys[e.code] = true; Sfx.init();
-  if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
+  if (e.metaKey || e.ctrlKey || e.altKey) return; // raccourcis système (Cmd+Tab…)
+  const k = keyOf(e); e.gameKey = k;
+  if (!keys[k]) pressed[k] = true;
+  keys[k] = true; Sfx.init();
+  if (!usingKbd) { usingKbd = true; document.body.classList.add('kbd'); }
+  if (k.startsWith('Arrow') || k === 'Space') e.preventDefault();
 });
-window.addEventListener('keyup', e => { keys[e.code] = false; });
+window.addEventListener('keyup', e => { keys[keyOf(e)] = false; });
+// un toucher d'écran réaffiche les commandes tactiles
+window.addEventListener('touchstart', e => { if (usingKbd && !e.target.closest('#touch')) { usingKbd = false; document.body.classList.remove('kbd'); } }, { passive: true });
+const touchUI = () => IS_TOUCH && !usingKbd;
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 const steerInput = () => (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
 
